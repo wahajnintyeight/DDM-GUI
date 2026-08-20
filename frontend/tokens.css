@@ -1,0 +1,66 @@
+:root {
+  --color-paper: oklch(98.5% 0.004 250);
+  --color-paper-2: oklch(96% 0.007 250);
+  --color-paper-3: oklch(93% 0.01 250);
+  --color-rule: oklch(86% 0.012 252);
+  --color-rule-strong: oklch(72% 0.016 254);
+  --color-neutral: oklch(56% 0.016 256);
+  --color-muted: oklch(43% 0.018 257);
+  --color-ink-2: oklch(30% 0.02 258);
+  --color-ink: oklch(20% 0.022 258);
+  --color-accent: oklch(50% 0.2 256);
+  --color-accent-strong: oklch(43% 0.19 256);
+  --color-accent-bright: oklch(70% 0.17 253);
+  --color-accent-ink: oklch(98% 0.005 250);
+  --color-accent-ink-soft: oklch(86% 0.045 250);
+  --color-focus: oklch(20% 0.022 258);
+  --color-graphite: oklch(20% 0.016 260);
+  --color-graphite-ink: oklch(95% 0.008 250);
+  --color-graphite-muted: oklch(74% 0.018 252);
+  --color-graphite-rule: oklch(36% 0.02 258);
+  --color-error: oklch(50% 0.18 27);
+  --color-error-soft: oklch(94% 0.025 27);
+  --color-error-ink: oklch(35% 0.14 27);
+  --color-success: oklch(48% 0.13 150);
+  --color-success-soft: oklch(94% 0.025 150);
+  --color-success-ink: oklch(32% 0.09 150);
+
+  --font-display: "Space Grotesk", "Trebuchet MS", sans-serif;
+  --font-body: "Inter", "Segoe UI", sans-serif;
+  --font-mono: "JetBrains Mono", "Cascadia Mono", monospace;
+
+  --space-3xs: 0.125rem;
+  --space-2xs: 0.25rem;
+  --space-xs: 0.5rem;
+  --space-sm: 0.75rem;
+  --space-md: 1rem;
+  --space-lg: 1.5rem;
+  --space-xl: 2.5rem;
+  --space-2xl: 4rem;
+  --space-3xl: 6rem;
+
+  --text-xs: 0.75rem;
+  --text-sm: 0.875rem;
+  --text-base: 1rem;
+  --text-md: 1.25rem;
+  --text-lg: 1.5625rem;
+  --text-xl: 1.953rem;
+  --text-2xl: clamp(2.25rem, 4vw + 0.5rem, 3.5rem);
+
+  --ease-out: cubic-bezier(0.16, 1, 0.3, 1);
+  --ease-in: cubic-bezier(0.7, 0, 0.84, 0);
+  --ease-in-out: cubic-bezier(0.65, 0, 0.35, 1);
+  --dur-micro: 120ms;
+  --dur-short: 220ms;
+  --dur-long: 420ms;
+  --dur-spinner: 900ms;
+  --dur-reduced: 150ms;
+
+  --rule-thin: 1px;
+  --rule-focus: 2px;
+  --radius-xs: 0.25rem;
+  --radius-sm: 0.375rem;
+  --radius-round: 50%;
+  --control-height: 2.75rem;
+  --control-height-touch: 3rem;
+}

@@ -1,0 +1,16 @@
+# Local build output
+build/bin/
+frontend/dist/
+frontend/node_modules/
+
+# Downloader bundle and private manifest material
+*.manifest
+keys.txt
+DepotDownloaderMod.exe
+
+# Editor and OS files
+.idea/
+.vscode/
+*.iml
+.DS_Store
+Thumbs.db
