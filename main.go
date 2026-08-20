@@ -6,6 +6,7 @@ import (
 	"github.com/wailsapp/wails/v2"
 	"github.com/wailsapp/wails/v2/pkg/options"
 	"github.com/wailsapp/wails/v2/pkg/options/assetserver"
+	"github.com/wailsapp/wails/v2/pkg/options/windows"
 )
 
 //go:embed all:frontend/dist
@@ -17,17 +18,21 @@ func main() {
 
 	// Create application with options
 	err := wails.Run(&options.App{
-		Title:     "DepotDrop — Cricket 26",
+		Title:     "DepotDrop - Cricket 26",
 		Width:     1120,
 		Height:    760,
-		MinWidth:  640,
-		MinHeight: 560,
+		Frameless: true,
+		MinWidth:  520,
+		MinHeight: 460,
 		AssetServer: &assetserver.Options{
 			Assets: assets,
 		},
 		BackgroundColour: &options.RGBA{R: 247, G: 249, B: 253, A: 1},
-		OnStartup:        app.startup,
-		OnShutdown:       app.shutdown,
+		Windows: &windows.Options{
+			DisableFramelessWindowDecorations: true,
+		},
+		OnStartup:  app.startup,
+		OnShutdown: app.shutdown,
 		Bind: []interface{}{
 			app,
 		},

@@ -6,8 +6,16 @@ export function CancelDownload() {
   return window['go']['main']['App']['CancelDownload']();
 }
 
+export function SelectDownloader() {
+  return window['go']['main']['App']['SelectDownloader']();
+}
+
 export function SelectGameFolder() {
   return window['go']['main']['App']['SelectGameFolder']();
+}
+
+export function SelectKeys() {
+  return window['go']['main']['App']['SelectKeys']();
 }
 
 export function SelectManifest() {

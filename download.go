@@ -18,10 +18,9 @@ import (
 	"github.com/wailsapp/wails/v2/pkg/runtime"
 )
 
-const appID = "3468650"
-
 var (
 	manifestNamePattern = regexp.MustCompile(`^(\d+)_(\d+)\.manifest$`)
+	numericIDPattern    = regexp.MustCompile(`^\d+$`)
 	progressPattern     = regexp.MustCompile(`(?:^|\s)(\d{1,3}(?:\.\d+)?)%`)
 	ansiPattern         = regexp.MustCompile(`\x1b\[[0-9;?]*[ -/]*[@-~]`)
 )
@@ -34,8 +33,12 @@ type ManifestInfo struct {
 }
 
 type DownloadRequest struct {
-	ManifestPath string `json:"manifestPath"`
-	GameFolder   string `json:"gameFolder"`
+	ManifestPath   string `json:"manifestPath"`
+	GameFolder     string `json:"gameFolder"`
+	DownloaderPath string `json:"downloaderPath"`
+	KeysPath       string `json:"keysPath"`
+	AppID          string `json:"appId"`
+	DepotID        string `json:"depotId"`
 }
 
 type DownloadUpdate struct {
@@ -64,7 +67,7 @@ func inspectManifest(path string) (ManifestInfo, error) {
 	return ManifestInfo{Path: path, Name: name, DepotID: parts[1], ManifestID: parts[2]}, nil
 }
 
-func downloadCommand(info ManifestInfo, gameFolder string) (string, []string, error) {
+func downloadCommand(info ManifestInfo, gameFolder, downloaderPath, keysPath, appID, depotID string) (string, []string, error) {
 	gameFolder = filepath.Clean(strings.TrimSpace(gameFolder))
 	if gameFolder == "." || gameFolder == "" {
 		return "", nil, errors.New("choose a game folder")
@@ -73,18 +76,32 @@ func downloadCommand(info ManifestInfo, gameFolder string) (string, []string, er
 		return "", nil, errors.New("the game folder does not exist; choose an existing folder")
 	}
 
-	bundleFolder := filepath.Dir(info.Path)
-	executable := filepath.Join(bundleFolder, "DepotDownloaderMod.exe")
-	keys := filepath.Join(bundleFolder, "keys.txt")
+	appID = strings.TrimSpace(appID)
+	if !numericIDPattern.MatchString(appID) {
+		return "", nil, errors.New("enter a numeric game app ID")
+	}
+	depotID = strings.TrimSpace(depotID)
+	if depotID == "" {
+		depotID = info.DepotID
+	}
+	if !numericIDPattern.MatchString(depotID) {
+		return "", nil, errors.New("enter a numeric depot ID or choose a matching manifest")
+	}
+
+	executable := filepath.Clean(strings.TrimSpace(downloaderPath))
+	keys := filepath.Clean(strings.TrimSpace(keysPath))
 	for label, path := range map[string]string{"DepotDownloaderMod.exe": executable, "keys.txt": keys} {
+		if path == "." || path == "" {
+			return "", nil, fmt.Errorf("choose %s", label)
+		}
 		if stat, err := os.Stat(path); err != nil || stat.IsDir() {
-			return "", nil, fmt.Errorf("%s must be beside the selected manifest", label)
+			return "", nil, fmt.Errorf("%s could not be opened at the selected path", label)
 		}
 	}
 
 	args := []string{
 		"-app", appID,
-		"-depot", info.DepotID,
+		"-depot", depotID,
 		"-manifest", info.ManifestID,
 		"-manifestfile", info.Path,
 		"-depotkeys", keys,
@@ -99,7 +116,7 @@ func (a *App) StartDownload(request DownloadRequest) error {
 	if err != nil {
 		return err
 	}
-	executable, args, err := downloadCommand(info, request.GameFolder)
+	executable, args, err := downloadCommand(info, request.GameFolder, request.DownloaderPath, request.KeysPath, request.AppID, request.DepotID)
 	if err != nil {
 		return err
 	}
@@ -114,7 +131,7 @@ func (a *App) StartDownload(request DownloadRequest) error {
 	a.running = true
 	a.mu.Unlock()
 
-	go a.runDownload(ctx, executable, args, filepath.Dir(info.Path))
+	go a.runDownload(ctx, executable, args, filepath.Dir(executable))
 	return nil
 }
 

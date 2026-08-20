@@ -37,13 +37,43 @@ func TestDownloadCommandMatchesBundleContract(t *testing.T) {
 	}
 
 	info, _ := inspectManifest(manifestPath)
-	executable, args, err := downloadCommand(info, gameFolder)
+	downloaderPath := filepath.Join(directory, "DepotDownloaderMod.exe")
+	keysPath := filepath.Join(directory, "keys.txt")
+	executable, args, err := downloadCommand(info, gameFolder, downloaderPath, keysPath, "3468650", "")
 	if err != nil {
 		t.Fatal(err)
 	}
-	want := []string{"-app", appID, "-depot", "3468651", "-manifest", "795493147105120679", "-manifestfile", manifestPath, "-depotkeys", filepath.Join(directory, "keys.txt"), "-dir", gameFolder, "-validate"}
-	if executable != filepath.Join(directory, "DepotDownloaderMod.exe") || !reflect.DeepEqual(args, want) {
+	want := []string{"-app", "3468650", "-depot", "3468651", "-manifest", "795493147105120679", "-manifestfile", manifestPath, "-depotkeys", keysPath, "-dir", gameFolder, "-validate"}
+	if executable != downloaderPath || !reflect.DeepEqual(args, want) {
 		t.Fatalf("unexpected command: %q %#v", executable, args)
+	}
+}
+
+func TestDownloadCommandAllowsDepotOverride(t *testing.T) {
+	directory := t.TempDir()
+	manifestPath := filepath.Join(directory, "3468651_795493147105120679.manifest")
+	downloaderPath := filepath.Join(directory, "downloader.exe")
+	keysPath := filepath.Join(directory, "custom-keys.txt")
+	gameFolder := filepath.Join(directory, "game")
+	for _, path := range []string{manifestPath, downloaderPath, keysPath} {
+		if err := os.WriteFile(path, []byte("test"), 0o600); err != nil {
+			t.Fatal(err)
+		}
+	}
+	if err := os.Mkdir(gameFolder, 0o700); err != nil {
+		t.Fatal(err)
+	}
+
+	info, err := inspectManifest(manifestPath)
+	if err != nil {
+		t.Fatal(err)
+	}
+	_, args, err := downloadCommand(info, gameFolder, downloaderPath, keysPath, "123456", "7654321")
+	if err != nil {
+		t.Fatal(err)
+	}
+	if !reflect.DeepEqual(args[:6], []string{"-app", "123456", "-depot", "7654321", "-manifest", "795493147105120679"}) {
+		t.Fatalf("unexpected overridden IDs: %#v", args)
 	}
 }
 

@@ -48,3 +48,21 @@ func (a *App) SelectGameFolder() (string, error) {
 		Title: "Choose the game folder",
 	})
 }
+
+func (a *App) SelectDownloader() (string, error) {
+	return runtime.OpenFileDialog(a.ctx, runtime.OpenDialogOptions{
+		Title: "Choose DepotDownloaderMod.exe",
+		Filters: []runtime.FileFilter{
+			{DisplayName: "DepotDownloaderMod (*.exe)", Pattern: "*.exe"},
+		},
+	})
+}
+
+func (a *App) SelectKeys() (string, error) {
+	return runtime.OpenFileDialog(a.ctx, runtime.OpenDialogOptions{
+		Title: "Choose keys.txt",
+		Filters: []runtime.FileFilter{
+			{DisplayName: "Depot keys (keys.txt)", Pattern: "keys.txt"},
+		},
+	})
+}

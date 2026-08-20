@@ -4,7 +4,11 @@ import {main} from '../models';
 
 export function CancelDownload():Promise<void>;
 
+export function SelectDownloader():Promise<string>;
+
 export function SelectGameFolder():Promise<string>;
+
+export function SelectKeys():Promise<string>;
 
 export function SelectManifest():Promise<main.ManifestInfo>;
 

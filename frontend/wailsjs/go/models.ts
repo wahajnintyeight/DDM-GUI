@@ -3,6 +3,10 @@ export namespace main {
 	export class DownloadRequest {
 	    manifestPath: string;
 	    gameFolder: string;
+	    downloaderPath: string;
+	    keysPath: string;
+	    appId: string;
+	    depotId: string;
 	
 	    static createFrom(source: any = {}) {
 	        return new DownloadRequest(source);
@@ -12,6 +16,10 @@ export namespace main {
 	        if ('string' === typeof source) source = JSON.parse(source);
 	        this.manifestPath = source["manifestPath"];
 	        this.gameFolder = source["gameFolder"];
+	        this.downloaderPath = source["downloaderPath"];
+	        this.keysPath = source["keysPath"];
+	        this.appId = source["appId"];
+	        this.depotId = source["depotId"];
 	    }
 	}
 	export class ManifestInfo {

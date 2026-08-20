@@ -1,4 +1,5 @@
 :root {
+  color-scheme: light;
   --color-paper: oklch(98.5% 0.004 250);
   --color-paper-2: oklch(96% 0.007 250);
   --color-paper-3: oklch(93% 0.01 250);
@@ -63,4 +64,33 @@
   --radius-round: 50%;
   --control-height: 2.75rem;
   --control-height-touch: 3rem;
+}
+
+:root[data-theme="dark"] {
+  color-scheme: dark;
+  --color-paper: oklch(18% 0.016 260);
+  --color-paper-2: oklch(22% 0.018 260);
+  --color-paper-3: oklch(27% 0.02 260);
+  --color-rule: oklch(34% 0.02 260);
+  --color-rule-strong: oklch(46% 0.022 260);
+  --color-neutral: oklch(68% 0.016 256);
+  --color-muted: oklch(74% 0.018 252);
+  --color-ink-2: oklch(88% 0.012 250);
+  --color-ink: oklch(96% 0.008 250);
+  --color-accent: oklch(69% 0.17 253);
+  --color-accent-strong: oklch(76% 0.15 253);
+  --color-accent-bright: oklch(80% 0.16 253);
+  --color-accent-ink: oklch(18% 0.016 260);
+  --color-accent-ink-soft: oklch(38% 0.045 250);
+  --color-focus: oklch(90% 0.018 250);
+  --color-graphite: oklch(12% 0.014 260);
+  --color-graphite-ink: oklch(95% 0.008 250);
+  --color-graphite-muted: oklch(74% 0.018 252);
+  --color-graphite-rule: oklch(27% 0.02 258);
+  --color-error: oklch(72% 0.15 27);
+  --color-error-soft: oklch(28% 0.06 27);
+  --color-error-ink: oklch(86% 0.1 27);
+  --color-success: oklch(72% 0.13 150);
+  --color-success-soft: oklch(27% 0.045 150);
+  --color-success-ink: oklch(86% 0.08 150);
 }
