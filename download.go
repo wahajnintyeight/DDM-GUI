@@ -61,7 +61,7 @@ func inspectManifest(path string) (ManifestInfo, error) {
 	name := filepath.Base(path)
 	parts := manifestNamePattern.FindStringSubmatch(name)
 	if len(parts) != 3 {
-		return ManifestInfo{}, errors.New("manifest filename must look like 3468651_795493147105120679.manifest")
+		return ManifestInfo{}, errors.New("manifest filename must look like DEPOTID_MANIFESTID.manifest")
 	}
 
 	return ManifestInfo{Path: path, Name: name, DepotID: parts[1], ManifestID: parts[2]}, nil

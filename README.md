@@ -12,8 +12,8 @@ Download the latest ready-to-run `.exe` from the [GitHub Releases page](https://
 
 ## What it does
 
-- Reads `3468651_795493147105120679.manifest` filenames safely.
-- Reads the depot ID and manifest ID from filenames such as `3468651_795493147105120679.manifest`.
+- Reads any manifest filename matching `DEPOTID_MANIFESTID.manifest`.
+- Extracts the depot ID and manifest ID from that filename; the values are not hardcoded to a particular game.
 - Accepts any numeric game app ID, so the UI is not tied to one community or game.
 - Lets users choose `DepotDownloaderMod.exe` and `keys.txt` from any local paths.
 - Runs the downloader with `-validate` using process arguments instead of a shell command.
@@ -27,8 +27,18 @@ You need these local inputs:
 ```text
 DepotDownloaderMod.exe
 keys.txt
-3468651_795493147105120679.manifest
+<depotID>_<manifestID>.manifest
 ```
+
+### `keys.txt` format
+
+Use plain text with one depot key per line:
+
+```text
+<depotID>;<hexKey>
+```
+
+For example, a file containing keys for two depots has two lines. Use the 64-character hexadecimal depot decryption key supplied for each depot; do not include quotes or extra formatting.
 
 They do not need to be in the same folder. DepotDrop never downloads, embeds, uploads, or commits the downloader or keys file; users select their own trusted copies.
 
@@ -37,7 +47,7 @@ Then:
 1. Build or download `DDM-GUI.exe`.
 2. Open the app.
 3. Enter the game app ID (required).
-4. Choose the `.manifest` file. The depot ID is filled from its filename when possible.
+4. Choose a `.manifest` file named `DEPOTID_MANIFESTID.manifest`. The depot ID is filled from its filename when possible.
 5. Choose `DepotDownloaderMod.exe`.
 6. Choose `keys.txt`.
 7. Choose an existing game destination folder.

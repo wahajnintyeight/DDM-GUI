@@ -28,7 +28,7 @@ document.querySelector('#app').innerHTML = `
       <div class="path-field__control"><input id="downloader-path" type="text" readonly aria-required="true" aria-describedby="downloader-help" placeholder="No downloader selected"><button class="button button--secondary" id="choose-downloader" type="button"><svg aria-hidden="true" viewBox="0 0 24 24"><path d="M4 5.5h6l2 2h8v11H4zM4 9h16"/></svg>Choose .exe</button></div>
     </div>
     <div class="path-field" id="keys-field" data-state="default">
-      <div class="path-field__copy"><label for="keys-path">keys.txt</label><p id="keys-help">Required local depot keys file.</p></div>
+      <div class="path-field__copy"><label for="keys-path">keys.txt</label><p id="keys-help">Required. One depotID;hexKey entry per line.</p></div>
       <div class="path-field__control"><input id="keys-path" type="text" readonly aria-required="true" aria-describedby="keys-help" placeholder="No keys file selected"><button class="button button--secondary" id="choose-keys" type="button"><svg aria-hidden="true" viewBox="0 0 24 24"><path d="M4 5.5h6l2 2h8v11H4zM4 9h16"/></svg>Choose keys</button></div>
     </div>
     <div class="path-field" id="folder-field" data-state="default">
