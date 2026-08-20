@@ -4,6 +4,12 @@
 
 DepotDrop wraps the local `DepotDownloaderMod.exe` workflow with guided setup: choose the manifest, app ID, downloader executable, depot keys, and destination folder, then watch the real downloader progress in the app.
 
+![DepotDrop desktop interface](screenshots/depotdrop-overview.png)
+
+## Download for Windows
+
+Download the latest ready-to-run `.exe` from the [GitHub Releases page](https://github.com/wahajnintyeight/DDM-GUI/releases/latest). The packaged app requires the Windows WebView2 Runtime, which is already present on most current Windows installations.
+
 ## What it does
 
 - Reads `3468651_795493147105120679.manifest` filenames safely.
