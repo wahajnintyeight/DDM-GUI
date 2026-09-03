@@ -86,3 +86,13 @@ func TestParseProgress(t *testing.T) {
 		t.Fatal("parsed progress from a status line")
 	}
 }
+
+func TestParseDownloadTotals(t *testing.T) {
+	downloaded, uncompressed, ok := parseDownloadTotals("Total downloaded: 1,737,996,624 bytes (1,770,372,614 bytes uncompressed) from 1 depots")
+	if !ok || downloaded != 1737996624 || uncompressed != 1770372614 {
+		t.Fatalf("got %d, %d, %v", downloaded, uncompressed, ok)
+	}
+	if _, _, ok := parseDownloadTotals("Disconnected from Steam"); ok {
+		t.Fatal("parsed totals from a status line")
+	}
+}

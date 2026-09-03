@@ -41,13 +41,14 @@ document.querySelector('#app').innerHTML = `
     <div class="monitor__summary"><div><p class="monitor__label" id="progress-title">Download progress</p><p class="monitor__status" id="progress-status">Waiting for paths</p></div><output class="monitor__percent" id="progress-percent" aria-live="polite">0.00%</output></div>
     <div class="progress-track" role="progressbar" aria-label="Download progress" aria-valuemin="0" aria-valuemax="100" aria-valuenow="0"><span id="progress-fill"></span></div>
     <p class="current-line" id="current-line">Downloader output will appear here.</p>
+    <div class="download-report" id="download-report" hidden aria-live="polite"><div class="report-stat"><span>Downloaded</span><strong id="report-downloaded">0 B</strong></div><div class="report-stat"><span>Uncompressed</span><strong id="report-uncompressed">0 B</strong></div><div class="report-stat"><span>Elapsed</span><strong id="report-elapsed">0s</strong></div></div>
     <div class="monitor__footer"><p class="monitor__hint">The detailed console is optional.</p><wa-details class="console-disclosure" id="console-panel" appearance="plain"><span class="console-summary" slot="summary"><span class="console-toggle__label">Show console</span><span id="line-count">0 lines</span></span><pre id="output-log" tabindex="0">Waiting to start.</pre></wa-details></div>
   </section>
 </main>
 <footer class="app-footer"><span id="footer-app-id">APP ID NOT SET</span><span>DEPOT FROM MANIFEST</span><span>VALIDATE ON</span></footer>`;
 
 const $ = (selector) => document.querySelector(selector);
-const el = { manifestField: $('#manifest-field'), manifestPath: $('#manifest-path'), manifestHelp: $('#manifest-help'), downloaderField: $('#downloader-field'), downloaderPath: $('#downloader-path'), downloaderHelp: $('#downloader-help'), keysField: $('#keys-field'), keysPath: $('#keys-path'), keysHelp: $('#keys-help'), folderField: $('#folder-field'), gameFolder: $('#game-folder'), appID: $('#app-id'), depotID: $('#depot-id'), footerAppID: $('#footer-app-id'), chooseManifest: $('#choose-manifest'), chooseDownloader: $('#choose-downloader'), chooseKeys: $('#choose-keys'), chooseFolder: $('#choose-folder'), start: $('#start-download'), cancel: $('#cancel-download'), message: $('#form-message'), header: $('.header-state'), headerLabel: $('#header-state-label'), status: $('#progress-status'), percent: $('#progress-percent'), track: $('.progress-track'), fill: $('#progress-fill'), currentLine: $('#current-line'), consolePanel: $('#console-panel'), consoleLabel: $('.console-toggle__label'), lineCount: $('#line-count'), log: $('#output-log'), themeToggle: $('#theme-toggle'), themeLabel: $('#theme-label'), windowControls: $('.window-controls'), minimize: $('#window-minimize'), maximize: $('#window-maximize'), close: $('#window-close') };
+const el = { manifestField: $('#manifest-field'), manifestPath: $('#manifest-path'), manifestHelp: $('#manifest-help'), downloaderField: $('#downloader-field'), downloaderPath: $('#downloader-path'), downloaderHelp: $('#downloader-help'), keysField: $('#keys-field'), keysPath: $('#keys-path'), keysHelp: $('#keys-help'), folderField: $('#folder-field'), gameFolder: $('#game-folder'), appID: $('#app-id'), depotID: $('#depot-id'), footerAppID: $('#footer-app-id'), chooseManifest: $('#choose-manifest'), chooseDownloader: $('#choose-downloader'), chooseKeys: $('#choose-keys'), chooseFolder: $('#choose-folder'), start: $('#start-download'), cancel: $('#cancel-download'), message: $('#form-message'), header: $('.header-state'), headerLabel: $('#header-state-label'), status: $('#progress-status'), percent: $('#progress-percent'), track: $('.progress-track'), fill: $('#progress-fill'), currentLine: $('#current-line'), report: $('#download-report'), reportDownloaded: $('#report-downloaded'), reportUncompressed: $('#report-uncompressed'), reportElapsed: $('#report-elapsed'), consolePanel: $('#console-panel'), consoleLabel: $('.console-toggle__label'), lineCount: $('#line-count'), log: $('#output-log'), themeToggle: $('#theme-toggle'), themeLabel: $('#theme-label'), windowControls: $('.window-controls'), minimize: $('#window-minimize'), maximize: $('#window-maximize'), close: $('#window-close') };
 const state = { manifest: null, gameFolder: '', downloaderPath: '', keysPath: '', appID: '', depotID: '', running: false, lines: [] };
 const errorText = (error) => typeof error === 'string' ? error : error?.message || String(error);
 
@@ -86,6 +87,30 @@ function updateProgress(value) {
   el.percent.textContent = `${progress.toFixed(2)}%`;
   el.fill.style.setProperty('--progress', progress / 100);
   el.track.setAttribute('aria-valuenow', progress.toFixed(2));
+}
+
+const formatBytes = (value) => {
+  const bytes = Number(value);
+  if (!Number.isFinite(bytes) || bytes < 0) return '—';
+  if (bytes < 1024) return `${bytes} B`;
+  const units = ['KB', 'MB', 'GB', 'TB'];
+  let size = bytes;
+  let unit = 'B';
+  for (const next of units) { size /= 1024; unit = next; if (size < 1024 || next === units.at(-1)) break; }
+  return `${size >= 100 ? size.toFixed(0) : size >= 10 ? size.toFixed(1) : size.toFixed(2)} ${unit}`;
+};
+const formatDuration = (value) => {
+  const total = Math.max(0, Number(value) || 0);
+  const hours = Math.floor(total / 3600);
+  const minutes = Math.floor((total % 3600) / 60);
+  const seconds = Math.floor(total % 60);
+  return hours ? `${hours}h ${minutes}m ${seconds}s` : minutes ? `${minutes}m ${seconds}s` : `${total < 10 ? total.toFixed(1) : seconds}s`;
+};
+function updateReport(update, visible = false) {
+  el.reportDownloaded.textContent = formatBytes(update.downloadedBytes);
+  el.reportUncompressed.textContent = formatBytes(update.uncompressedBytes);
+  el.reportElapsed.textContent = formatDuration(update.elapsedSeconds);
+  if (visible) el.report.hidden = false;
 }
 
 function appendLine(line) {
@@ -173,7 +198,7 @@ el.chooseFolder.addEventListener('click', async () => {
 });
 
 el.start.addEventListener('click', async () => {
-  setRunning(true); state.lines = []; el.log.textContent = ''; el.lineCount.textContent = '0 lines'; updateProgress(0);
+  setRunning(true); state.lines = []; el.log.textContent = ''; el.lineCount.textContent = '0 lines'; updateProgress(0); el.report.hidden = true;
   try { await StartDownload({ manifestPath: state.manifest.path, gameFolder: state.gameFolder, downloaderPath: state.downloaderPath, keysPath: state.keysPath, appId: state.appID, depotId: state.depotID }); }
   catch (error) { setRunning(false); el.header.dataset.state = 'error'; el.headerLabel.textContent = 'Needs attention'; el.status.textContent = 'Download could not start'; el.message.textContent = errorText(error); el.start.dataset.state = 'error'; }
 });
@@ -218,7 +243,7 @@ el.cancel.addEventListener('click', () => {
 
 try {
   EventsOn('download:update', (update) => {
-    updateProgress(update.progress); el.status.textContent = update.message; appendLine(update.line);
+    updateProgress(update.progress); updateReport(update, update.state !== 'running'); el.status.textContent = update.message; appendLine(update.line);
     if (update.state === 'running') return;
     setRunning(false);
     el.header.dataset.state = update.state;

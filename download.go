@@ -22,6 +22,7 @@ var (
 	manifestNamePattern = regexp.MustCompile(`^(\d+)_(\d+)\.manifest$`)
 	numericIDPattern    = regexp.MustCompile(`^\d+$`)
 	progressPattern     = regexp.MustCompile(`(?:^|\s)(\d{1,3}(?:\.\d+)?)%`)
+	totalBytesPattern   = regexp.MustCompile(`(?i)^Total downloaded:\s*([\d,]+)\s+bytes(?:\s+\(([\d,]+)\s+bytes\s+uncompressed\))?`)
 	ansiPattern         = regexp.MustCompile(`\x1b\[[0-9;?]*[ -/]*[@-~]`)
 )
 
@@ -42,10 +43,13 @@ type DownloadRequest struct {
 }
 
 type DownloadUpdate struct {
-	State    string  `json:"state"`
-	Progress float64 `json:"progress"`
-	Message  string  `json:"message"`
-	Line     string  `json:"line,omitempty"`
+	State             string  `json:"state"`
+	Progress          float64 `json:"progress"`
+	Message           string  `json:"message"`
+	Line              string  `json:"line,omitempty"`
+	DownloadedBytes   int64   `json:"downloadedBytes"`
+	UncompressedBytes int64   `json:"uncompressedBytes"`
+	ElapsedSeconds    float64 `json:"elapsedSeconds"`
 }
 
 func inspectManifest(path string) (ManifestInfo, error) {
@@ -166,6 +170,7 @@ func (a *App) runDownload(ctx context.Context, executable string, args []string,
 		emit(DownloadUpdate{State: "error", Message: "Could not read downloader errors: " + err.Error()})
 		return
 	}
+	startedAt := time.Now()
 	if err := command.Start(); err != nil {
 		emit(DownloadUpdate{State: "error", Message: "DepotDownloaderMod could not start: " + err.Error()})
 		return
@@ -182,11 +187,17 @@ func (a *App) runDownload(ctx context.Context, executable string, args []string,
 	}()
 
 	progress := 0.0
+	downloadedBytes := int64(0)
+	uncompressedBytes := int64(0)
 	lastProgressEmit := time.Time{}
 	for line := range lines {
 		line = strings.TrimSpace(ansiPattern.ReplaceAllString(line, ""))
 		if line == "" {
 			continue
+		}
+		if downloaded, uncompressed, ok := parseDownloadTotals(line); ok {
+			downloadedBytes = downloaded
+			uncompressedBytes = uncompressed
 		}
 		if parsed, ok := parseProgress(line); ok {
 			progress = parsed
@@ -195,19 +206,20 @@ func (a *App) runDownload(ctx context.Context, executable string, args []string,
 			}
 			lastProgressEmit = time.Now()
 		}
-		emit(DownloadUpdate{State: "running", Progress: progress, Message: "Downloading and validating files", Line: line})
+		emit(DownloadUpdate{State: "running", Progress: progress, Message: "Downloading and validating files", Line: line, DownloadedBytes: downloadedBytes, UncompressedBytes: uncompressedBytes})
 	}
 
 	waitErr := command.Wait()
+	elapsedSeconds := time.Since(startedAt).Seconds()
 	if ctx.Err() != nil {
-		emit(DownloadUpdate{State: "cancelled", Progress: progress, Message: "Download cancelled"})
+		emit(DownloadUpdate{State: "cancelled", Progress: progress, Message: "Download cancelled", DownloadedBytes: downloadedBytes, UncompressedBytes: uncompressedBytes, ElapsedSeconds: elapsedSeconds})
 		return
 	}
 	if waitErr != nil {
-		emit(DownloadUpdate{State: "error", Progress: progress, Message: "DepotDownloaderMod stopped: " + waitErr.Error()})
+		emit(DownloadUpdate{State: "error", Progress: progress, Message: "DepotDownloaderMod stopped: " + waitErr.Error(), DownloadedBytes: downloadedBytes, UncompressedBytes: uncompressedBytes, ElapsedSeconds: elapsedSeconds})
 		return
 	}
-	emit(DownloadUpdate{State: "complete", Progress: 100, Message: "Download complete and validated"})
+	emit(DownloadUpdate{State: "complete", Progress: 100, Message: "Download complete and validated", DownloadedBytes: downloadedBytes, UncompressedBytes: uncompressedBytes, ElapsedSeconds: elapsedSeconds})
 }
 
 func scanLines(reader io.Reader, lines chan<- string, wg *sync.WaitGroup) {
@@ -246,4 +258,27 @@ func parseProgress(line string) (float64, bool) {
 		return 0, false
 	}
 	return progress, true
+}
+
+func parseDownloadTotals(line string) (int64, int64, bool) {
+	match := totalBytesPattern.FindStringSubmatch(strings.TrimSpace(line))
+	if len(match) != 3 {
+		return 0, 0, false
+	}
+
+	parseBytes := func(value string) (int64, error) {
+		return strconv.ParseInt(strings.ReplaceAll(value, ",", ""), 10, 64)
+	}
+	downloaded, err := parseBytes(match[1])
+	if err != nil {
+		return 0, 0, false
+	}
+	uncompressed := int64(0)
+	if match[2] != "" {
+		uncompressed, err = parseBytes(match[2])
+		if err != nil {
+			return 0, 0, false
+		}
+	}
+	return downloaded, uncompressed, true
 }

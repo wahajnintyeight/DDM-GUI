@@ -18,6 +18,7 @@ Download the latest ready-to-run `.exe` from the [GitHub Releases page](https://
 - Lets users choose `DepotDownloaderMod.exe` and `keys.txt` from any local paths.
 - Runs the downloader with `-validate` using process arguments instead of a shell command.
 - Streams percentage progress, the current file, and a bounded output log.
+- Shows the final downloaded size, uncompressed size, and elapsed time from the downloader output.
 - Supports cancellation and clear startup, error, cancelled, and completed states.
 
 ## Quick start
