@@ -4,6 +4,17 @@
 
 DepotDrop wraps the local `DepotDownloaderMod.exe` workflow with guided setup: choose the manifest, app ID, downloader executable, depot keys, and destination folder, then watch the real downloader progress in the app.
 
+## Built with
+
+[![Go](https://img.shields.io/badge/Go-00ADD8?style=for-the-badge&logo=go&logoColor=white)](https://go.dev/)
+[![Wails](https://img.shields.io/badge/Wails-DF5D36?style=for-the-badge&logo=wails&logoColor=white)](https://github.com/wailsapp/wails)
+[![JavaScript](https://img.shields.io/badge/JavaScript-F7DF1E?style=for-the-badge&logo=javascript&logoColor=black)](https://developer.mozilla.org/docs/Web/JavaScript)
+[![Vite](https://img.shields.io/badge/Vite-646CFF?style=for-the-badge&logo=vite&logoColor=white)](https://vite.dev/)
+[![Web Awesome](https://img.shields.io/badge/Web%20Awesome-4774E7?style=for-the-badge)](https://webawesome.com/)
+[![Steam Store](https://img.shields.io/badge/Steam%20Store%20Search-000000?style=for-the-badge&logo=steam&logoColor=white)](https://store.steampowered.com/)
+[![DepotDownloaderMod](https://img.shields.io/badge/DepotDownloaderMod-181717?style=for-the-badge&logo=github&logoColor=white)](https://github.com/SteamAutoCracks/DepotDownloaderMod)
+[![Playwright](https://img.shields.io/badge/Playwright-2EAD33?style=for-the-badge&logo=playwright&logoColor=white)](https://playwright.dev/)
+
 ![DepotDrop desktop interface](screenshots/depotdrop-overview.png)
 
 ## Download for Windows
@@ -14,12 +25,13 @@ Download the latest ready-to-run `.exe` from the [GitHub Releases page](https://
 
 - Reads any manifest filename matching `DEPOTID_MANIFESTID.manifest`.
 - Extracts the depot ID and manifest ID from that filename; the values are not hardcoded to a particular game.
+- Searches Steam by name after one character, shows up to 10 app results, and fills the app ID on selection.
 - Accepts any numeric game app ID, so the UI is not tied to one community or game.
 - Lets users choose `DepotDownloaderMod.exe` and `keys.txt` from any local paths.
-- Runs the downloader with `-validate` using process arguments instead of a shell command.
+- Offers a **Validate** checkbox (on by default) to include or omit `-validate`, using process arguments instead of a shell command.
 - Streams percentage progress, the current file, and a bounded output log.
 - Shows the final downloaded size, uncompressed size, and elapsed time from the downloader output.
-- Supports cancellation and clear startup, error, cancelled, and completed states.
+- Supports pause/resume, cancellation, and clear download states.
 
 ## Quick start
 
@@ -47,12 +59,15 @@ Then:
 
 1. Build or download `DDM-GUI.exe`.
 2. Open the app.
-3. Enter the game app ID (required).
+3. Search for a Steam game and select a result, or choose **Enter app ID** to type it manually. Search uses the public Steam Store endpoint without an API key; results can include DLC and soundtracks.
 4. Choose a `.manifest` file named `DEPOTID_MANIFESTID.manifest`. The depot ID is filled from its filename when possible.
 5. Choose `DepotDownloaderMod.exe`.
 6. Choose `keys.txt`.
 7. Choose an existing game destination folder.
-8. Select **Start download**.
+8. Leave **Validate** checked to verify all existing files, or uncheck it to use the downloader's normal checks.
+9. Select **Start download**.
+
+**Pause** stops the downloader and keeps the downloaded files. **Resume** restarts the same command with the selected validation setting. With **Validate** enabled, all existing files are checked; when disabled, the downloader can still check files needed for recovery or updates. Validation can take time and interrupted or unwritten chunks may download again. Keep the destination folder and its `.DepotDownloader` metadata. Paused setup stays locked until you resume or cancel; after closing the app, select the same inputs and destination and start again to recover existing chunks. Elapsed time excludes time spent paused; downloaded byte totals come from the latest downloader run.
 
 The app does not read or transmit the contents of the manifest, depot keys, or downloader executable. It passes their selected local paths directly to the downloader.
 

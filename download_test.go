@@ -39,13 +39,20 @@ func TestDownloadCommandMatchesBundleContract(t *testing.T) {
 	info, _ := inspectManifest(manifestPath)
 	downloaderPath := filepath.Join(directory, "DepotDownloaderMod.exe")
 	keysPath := filepath.Join(directory, "keys.txt")
-	executable, args, err := downloadCommand(info, gameFolder, downloaderPath, keysPath, "3468650", "")
+	executable, args, err := downloadCommand(info, gameFolder, downloaderPath, keysPath, "3468650", "", true)
 	if err != nil {
 		t.Fatal(err)
 	}
 	want := []string{"-app", "3468650", "-depot", "3468651", "-manifest", "795493147105120679", "-manifestfile", manifestPath, "-depotkeys", keysPath, "-dir", gameFolder, "-validate"}
 	if executable != downloaderPath || !reflect.DeepEqual(args, want) {
 		t.Fatalf("unexpected command: %q %#v", executable, args)
+	}
+	_, args, err = downloadCommand(info, gameFolder, downloaderPath, keysPath, "3468650", "", false)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if !reflect.DeepEqual(args, want[:len(want)-1]) {
+		t.Fatalf("validation disabled but got arguments: %#v", args)
 	}
 }
 
@@ -68,7 +75,7 @@ func TestDownloadCommandAllowsDepotOverride(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	_, args, err := downloadCommand(info, gameFolder, downloaderPath, keysPath, "123456", "7654321")
+	_, args, err := downloadCommand(info, gameFolder, downloaderPath, keysPath, "123456", "7654321", true)
 	if err != nil {
 		t.Fatal(err)
 	}

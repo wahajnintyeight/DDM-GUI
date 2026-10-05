@@ -8,10 +8,13 @@ import (
 )
 
 type App struct {
-	ctx     context.Context
-	mu      sync.Mutex
-	cancel  context.CancelFunc
-	running bool
+	ctx         context.Context
+	mu          sync.Mutex
+	cancel      context.CancelFunc
+	running     bool
+	pauseCancel context.CancelCauseFunc
+	paused      bool
+	resume      chan struct{}
 }
 
 func NewApp() *App {

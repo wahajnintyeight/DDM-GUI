@@ -40,6 +40,7 @@ type DownloadRequest struct {
 	KeysPath       string `json:"keysPath"`
 	AppID          string `json:"appId"`
 	DepotID        string `json:"depotId"`
+	Validate       bool   `json:"validate"`
 }
 
 type DownloadUpdate struct {
@@ -71,7 +72,7 @@ func inspectManifest(path string) (ManifestInfo, error) {
 	return ManifestInfo{Path: path, Name: name, DepotID: parts[1], ManifestID: parts[2]}, nil
 }
 
-func downloadCommand(info ManifestInfo, gameFolder, downloaderPath, keysPath, appID, depotID string) (string, []string, error) {
+func downloadCommand(info ManifestInfo, gameFolder, downloaderPath, keysPath, appID, depotID string, validate bool) (string, []string, error) {
 	gameFolder = filepath.Clean(strings.TrimSpace(gameFolder))
 	if gameFolder == "." || gameFolder == "" {
 		return "", nil, errors.New("choose a game folder")
@@ -110,7 +111,9 @@ func downloadCommand(info ManifestInfo, gameFolder, downloaderPath, keysPath, ap
 		"-manifestfile", info.Path,
 		"-depotkeys", keys,
 		"-dir", gameFolder,
-		"-validate",
+	}
+	if validate {
+		args = append(args, "-validate")
 	}
 	return executable, args, nil
 }
@@ -120,7 +123,7 @@ func (a *App) StartDownload(request DownloadRequest) error {
 	if err != nil {
 		return err
 	}
-	executable, args, err := downloadCommand(info, request.GameFolder, request.DownloaderPath, request.KeysPath, request.AppID, request.DepotID)
+	executable, args, err := downloadCommand(info, request.GameFolder, request.DownloaderPath, request.KeysPath, request.AppID, request.DepotID, request.Validate)
 	if err != nil {
 		return err
 	}
@@ -133,9 +136,15 @@ func (a *App) StartDownload(request DownloadRequest) error {
 	ctx, cancel := context.WithCancel(a.ctx)
 	a.cancel = cancel
 	a.running = true
+	a.paused = false
+	a.resume = make(chan struct{}, 1)
+	attemptCtx, pauseCancel := context.WithCancelCause(ctx)
+	a.pauseCancel = pauseCancel
 	a.mu.Unlock()
 
-	go a.runDownload(ctx, executable, args, filepath.Dir(executable))
+	go a.runDownload(ctx, attemptCtx, executable, args, filepath.Dir(executable), func(update DownloadUpdate) {
+		runtime.EventsEmit(a.ctx, "download:update", update)
+	})
 	return nil
 }
 
@@ -147,33 +156,101 @@ func (a *App) CancelDownload() {
 	}
 }
 
-func (a *App) runDownload(ctx context.Context, executable string, args []string, workingDirectory string) {
-	defer func() {
-		a.mu.Lock()
-		a.running = false
-		a.cancel = nil
-		a.mu.Unlock()
-	}()
+var errDownloadPaused = errors.New("download paused")
 
-	emit := func(update DownloadUpdate) { runtime.EventsEmit(a.ctx, "download:update", update) }
+func (a *App) PauseDownload() error {
+	a.mu.Lock()
+	defer a.mu.Unlock()
+	if !a.running || a.paused || a.pauseCancel == nil {
+		return errors.New("no active download to pause")
+	}
+	a.pauseCancel(errDownloadPaused)
+	return nil
+}
+
+func (a *App) ResumeDownload() error {
+	a.mu.Lock()
+	defer a.mu.Unlock()
+	if !a.running || !a.paused {
+		return errors.New("no paused download to resume")
+	}
+	a.paused = false
+	a.resume <- struct{}{}
+	return nil
+}
+
+func (a *App) runDownload(ctx, attemptCtx context.Context, executable string, args []string, workingDirectory string, emit func(DownloadUpdate)) {
+	var update DownloadUpdate
+	activeSeconds := 0.0
+	for {
+		update = downloadAttempt(attemptCtx, executable, args, workingDirectory, emit)
+		activeSeconds += update.ElapsedSeconds
+		update.ElapsedSeconds = activeSeconds
+		a.mu.Lock()
+		a.pauseCancel(nil)
+		a.pauseCancel = nil
+		if ctx.Err() != nil || update.State != "paused" {
+			if ctx.Err() != nil {
+				update.State, update.Message = "cancelled", "Download cancelled"
+			}
+			if a.cancel != nil {
+				a.cancel()
+			}
+			a.running, a.paused, a.cancel = false, false, nil
+			emit(update)
+			a.mu.Unlock()
+			return
+		}
+		a.paused = true
+		emit(update)
+		a.mu.Unlock()
+		select {
+		case <-ctx.Done():
+		case <-a.resume:
+		}
+		a.mu.Lock()
+		if ctx.Err() != nil {
+			update.State, update.Message = "cancelled", "Download cancelled"
+			if a.cancel != nil {
+				a.cancel()
+			}
+			a.running, a.paused, a.cancel = false, false, nil
+			emit(update)
+			a.mu.Unlock()
+			return
+		}
+		attemptCtx, a.pauseCancel = context.WithCancelCause(ctx)
+		a.paused = false
+		a.mu.Unlock()
+	}
+}
+
+func downloadAttempt(ctx context.Context, executable string, args []string, workingDirectory string, emit func(DownloadUpdate)) DownloadUpdate {
+	if ctx.Err() != nil {
+		if errors.Is(context.Cause(ctx), errDownloadPaused) {
+			return DownloadUpdate{State: "paused", Message: "Download paused. Resume to continue downloading."}
+		}
+		return DownloadUpdate{State: "cancelled", Message: "Download cancelled"}
+	}
 	emit(DownloadUpdate{State: "running", Message: "Connecting to Steam…"})
 
 	command := exec.CommandContext(ctx, executable, args...)
 	command.Dir = workingDirectory
 	stdout, err := command.StdoutPipe()
 	if err != nil {
-		emit(DownloadUpdate{State: "error", Message: "Could not read downloader output: " + err.Error()})
-		return
+		return DownloadUpdate{State: "error", Message: "Could not read downloader output: " + err.Error()}
 	}
 	stderr, err := command.StderrPipe()
 	if err != nil {
-		emit(DownloadUpdate{State: "error", Message: "Could not read downloader errors: " + err.Error()})
-		return
+		return DownloadUpdate{State: "error", Message: "Could not read downloader errors: " + err.Error()}
 	}
 	startedAt := time.Now()
 	if err := command.Start(); err != nil {
-		emit(DownloadUpdate{State: "error", Message: "DepotDownloaderMod could not start: " + err.Error()})
-		return
+		state, message := "error", "DepotDownloaderMod could not start: "+err.Error()
+		if errors.Is(context.Cause(ctx), errDownloadPaused) {
+			state, message = "paused", "Download paused. Resume to continue downloading."
+		}
+		return DownloadUpdate{State: state, Message: message}
 	}
 
 	lines := make(chan string, 64)
@@ -206,20 +283,22 @@ func (a *App) runDownload(ctx context.Context, executable string, args []string,
 			}
 			lastProgressEmit = time.Now()
 		}
-		emit(DownloadUpdate{State: "running", Progress: progress, Message: "Downloading and validating files", Line: line, DownloadedBytes: downloadedBytes, UncompressedBytes: uncompressedBytes})
+		emit(DownloadUpdate{State: "running", Progress: progress, Message: "Downloading files", Line: line, DownloadedBytes: downloadedBytes, UncompressedBytes: uncompressedBytes})
 	}
 
 	waitErr := command.Wait()
 	elapsedSeconds := time.Since(startedAt).Seconds()
 	if ctx.Err() != nil {
-		emit(DownloadUpdate{State: "cancelled", Progress: progress, Message: "Download cancelled", DownloadedBytes: downloadedBytes, UncompressedBytes: uncompressedBytes, ElapsedSeconds: elapsedSeconds})
-		return
+		state, message := "cancelled", "Download cancelled"
+		if errors.Is(context.Cause(ctx), errDownloadPaused) {
+			state, message = "paused", "Download paused. Resume to continue downloading."
+		}
+		return DownloadUpdate{State: state, Progress: progress, Message: message, DownloadedBytes: downloadedBytes, UncompressedBytes: uncompressedBytes, ElapsedSeconds: elapsedSeconds}
 	}
 	if waitErr != nil {
-		emit(DownloadUpdate{State: "error", Progress: progress, Message: "DepotDownloaderMod stopped: " + waitErr.Error(), DownloadedBytes: downloadedBytes, UncompressedBytes: uncompressedBytes, ElapsedSeconds: elapsedSeconds})
-		return
+		return DownloadUpdate{State: "error", Progress: progress, Message: "DepotDownloaderMod stopped: " + waitErr.Error(), DownloadedBytes: downloadedBytes, UncompressedBytes: uncompressedBytes, ElapsedSeconds: elapsedSeconds}
 	}
-	emit(DownloadUpdate{State: "complete", Progress: 100, Message: "Download complete and validated", DownloadedBytes: downloadedBytes, UncompressedBytes: uncompressedBytes, ElapsedSeconds: elapsedSeconds})
+	return DownloadUpdate{State: "complete", Progress: 100, Message: "Download complete", DownloadedBytes: downloadedBytes, UncompressedBytes: uncompressedBytes, ElapsedSeconds: elapsedSeconds}
 }
 
 func scanLines(reader io.Reader, lines chan<- string, wg *sync.WaitGroup) {

@@ -1,7 +1,8 @@
 import '@awesome.me/webawesome/dist/styles/themes/default.css';
 import '@awesome.me/webawesome/dist/components/details/details.js';
 import './style.css';
-import { CancelDownload, SelectDownloader, SelectGameFolder, SelectKeys, SelectManifest, StartDownload } from '../wailsjs/go/main/App';
+import { createGameSelector } from './game-selector';
+import { CancelDownload, PauseDownload, ResumeDownload, SelectDownloader, SelectGameFolder, SelectKeys, SelectManifest, StartDownload } from '../wailsjs/go/main/App';
 import { EventsOn, Quit, WindowIsMaximised, WindowMinimise, WindowToggleMaximise } from '../wailsjs/runtime/runtime';
 
 const themeKey = 'depotdrop-theme';
@@ -20,7 +21,7 @@ document.querySelector('#app').innerHTML = `
       <div class="path-field__control"><input id="manifest-path" type="text" readonly aria-required="true" aria-describedby="manifest-help" placeholder="No manifest selected"><button class="button button--secondary" id="choose-manifest" type="button"><svg aria-hidden="true" viewBox="0 0 24 24"><path d="M4 5.5h6l2 2h8v11H4zM4 9h16"/></svg>Choose manifest</button></div>
     </div>
     <div class="identity-grid">
-      <div class="identity-field"><label for="app-id">Game app ID <span class="required-mark">Required</span></label><input id="app-id" type="text" inputmode="numeric" aria-required="true" aria-describedby="app-id-help" placeholder="e.g. 3468650"><p id="app-id-help">Required Steam app ID.</p></div>
+      <div class="identity-field"><label for="app-id">Game app ID <span class="required-mark">Required</span></label><div id="game-selector"></div><input id="app-id" type="text" inputmode="numeric" aria-required="true" aria-describedby="app-id-help" placeholder="e.g. 3468650"><p id="app-id-help">Select a Steam result or enter an app ID manually.</p></div>
       <div class="identity-field"><label for="depot-id">Depot ID <span class="optional-mark">Optional</span></label><input id="depot-id" type="text" inputmode="numeric" aria-describedby="depot-id-help" placeholder="Auto from manifest"><p id="depot-id-help">Blank uses the manifest depot.</p></div>
     </div>
     <div class="path-field" id="downloader-field" data-state="default">
@@ -32,10 +33,11 @@ document.querySelector('#app').innerHTML = `
       <div class="path-field__control"><input id="keys-path" type="text" readonly aria-required="true" aria-describedby="keys-help" placeholder="No keys file selected"><button class="button button--secondary" id="choose-keys" type="button"><svg aria-hidden="true" viewBox="0 0 24 24"><path d="M4 5.5h6l2 2h8v11H4zM4 9h16"/></svg>Choose keys</button></div>
     </div>
     <div class="path-field" id="folder-field" data-state="default">
-      <div class="path-field__copy"><label for="game-folder">Game folder</label><p id="folder-help">Existing files are validated; missing files are downloaded.</p></div>
+      <div class="path-field__copy"><label for="game-folder">Game folder</label><p id="folder-help">Existing files can be reused; missing files are downloaded.</p></div>
       <div class="path-field__control"><input id="game-folder" type="text" readonly aria-required="true" aria-describedby="folder-help" placeholder="No destination selected"><button class="button button--secondary" id="choose-folder" type="button"><svg aria-hidden="true" viewBox="0 0 24 24"><path d="M3.5 6h6l2 2h9v10.5h-17z"/></svg>Choose folder</button></div>
     </div>
-    <div class="action-row"><button class="button button--primary" id="start-download" type="button" disabled><span class="button__spinner"></span><span class="button__label">Start download</span></button><button class="button button--quiet" id="cancel-download" type="button" hidden>Cancel</button><p id="form-message" class="form-message" aria-live="polite">Complete the required setup fields to continue.</p></div>
+    <div class="validate-option"><label for="validate-download"><input id="validate-download" type="checkbox" checked aria-describedby="validate-help">Validate</label><p id="validate-help">Verify all existing files. When off, the downloader may still check files needed for recovery.</p></div>
+    <div class="action-row"><button class="button button--primary" id="start-download" type="button" disabled><span class="button__spinner"></span><span class="button__label">Start download</span></button><button class="button button--secondary" id="pause-download" type="button" hidden>Pause</button><button class="button button--quiet" id="cancel-download" type="button" hidden>Cancel</button><p id="form-message" class="form-message" aria-live="polite">Complete the required setup fields to continue.</p></div>
   </section>
   <section class="monitor" aria-labelledby="progress-title">
     <div class="monitor__summary"><div><p class="monitor__label" id="progress-title">Download progress</p><p class="monitor__status" id="progress-status">Waiting for paths</p></div><output class="monitor__percent" id="progress-percent" aria-live="polite">0.00%</output></div>
@@ -45,12 +47,14 @@ document.querySelector('#app').innerHTML = `
     <div class="monitor__footer"><p class="monitor__hint">The detailed console is optional.</p><wa-details class="console-disclosure" id="console-panel" appearance="plain"><span class="console-summary" slot="summary"><span class="console-toggle__label">Show console</span><span id="line-count">0 lines</span></span><pre id="output-log" tabindex="0">Waiting to start.</pre></wa-details></div>
   </section>
 </main>
-<footer class="app-footer"><span id="footer-app-id">APP ID NOT SET</span><span>DEPOT FROM MANIFEST</span><span>VALIDATE ON</span></footer>`;
+<footer class="app-footer"><span id="footer-app-id">APP ID NOT SET</span><span>DEPOT FROM MANIFEST</span><span id="footer-validate">VALIDATE ON</span></footer>`;
 
 const $ = (selector) => document.querySelector(selector);
-const el = { manifestField: $('#manifest-field'), manifestPath: $('#manifest-path'), manifestHelp: $('#manifest-help'), downloaderField: $('#downloader-field'), downloaderPath: $('#downloader-path'), downloaderHelp: $('#downloader-help'), keysField: $('#keys-field'), keysPath: $('#keys-path'), keysHelp: $('#keys-help'), folderField: $('#folder-field'), gameFolder: $('#game-folder'), appID: $('#app-id'), depotID: $('#depot-id'), footerAppID: $('#footer-app-id'), chooseManifest: $('#choose-manifest'), chooseDownloader: $('#choose-downloader'), chooseKeys: $('#choose-keys'), chooseFolder: $('#choose-folder'), start: $('#start-download'), cancel: $('#cancel-download'), message: $('#form-message'), header: $('.header-state'), headerLabel: $('#header-state-label'), status: $('#progress-status'), percent: $('#progress-percent'), track: $('.progress-track'), fill: $('#progress-fill'), currentLine: $('#current-line'), report: $('#download-report'), reportDownloaded: $('#report-downloaded'), reportUncompressed: $('#report-uncompressed'), reportElapsed: $('#report-elapsed'), consolePanel: $('#console-panel'), consoleLabel: $('.console-toggle__label'), lineCount: $('#line-count'), log: $('#output-log'), themeToggle: $('#theme-toggle'), themeLabel: $('#theme-label'), windowControls: $('.window-controls'), minimize: $('#window-minimize'), maximize: $('#window-maximize'), close: $('#window-close') };
-const state = { manifest: null, gameFolder: '', downloaderPath: '', keysPath: '', appID: '', depotID: '', running: false, lines: [] };
+const el = { manifestField: $('#manifest-field'), manifestPath: $('#manifest-path'), manifestHelp: $('#manifest-help'), downloaderField: $('#downloader-field'), downloaderPath: $('#downloader-path'), downloaderHelp: $('#downloader-help'), keysField: $('#keys-field'), keysPath: $('#keys-path'), keysHelp: $('#keys-help'), folderField: $('#folder-field'), gameFolder: $('#game-folder'), appID: $('#app-id'), depotID: $('#depot-id'), footerAppID: $('#footer-app-id'), validate: $('#validate-download'), footerValidate: $('#footer-validate'), chooseManifest: $('#choose-manifest'), chooseDownloader: $('#choose-downloader'), chooseKeys: $('#choose-keys'), chooseFolder: $('#choose-folder'), start: $('#start-download'), cancel: $('#cancel-download'), pause: $('#pause-download'), message: $('#form-message'), header: $('.header-state'), headerLabel: $('#header-state-label'), status: $('#progress-status'), percent: $('#progress-percent'), track: $('.progress-track'), fill: $('#progress-fill'), currentLine: $('#current-line'), report: $('#download-report'), reportDownloaded: $('#report-downloaded'), reportUncompressed: $('#report-uncompressed'), reportElapsed: $('#report-elapsed'), consolePanel: $('#console-panel'), consoleLabel: $('.console-toggle__label'), lineCount: $('#line-count'), log: $('#output-log'), themeToggle: $('#theme-toggle'), themeLabel: $('#theme-label'), windowControls: $('.window-controls'), minimize: $('#window-minimize'), maximize: $('#window-maximize'), close: $('#window-close') };
+const state = { manifest: null, gameFolder: '', downloaderPath: '', keysPath: '', appID: '', depotID: '', running: false, paused: false, lines: [] };
 const errorText = (error) => typeof error === 'string' ? error : error?.message || String(error);
+
+const gameSelector = createGameSelector($('#game-selector'), el.appID);
 
 function updateReadyState() {
   const missing = [];
@@ -62,15 +66,21 @@ function updateReadyState() {
   const ready = missing.length === 0 && !state.running;
   el.start.disabled = !ready;
   el.start.setAttribute('aria-disabled', String(!ready));
-  if (!state.running) el.message.textContent = ready ? 'Ready to download and validate.' : missing.length === 1 ? `Add ${missing[0]} to continue.` : 'Complete the required setup fields to continue.';
+  if (!state.running) el.message.textContent = ready ? 'Ready to download.' : missing.length === 1 ? `Add ${missing[0]} to continue.` : 'Complete the required setup fields to continue.';
 }
 
 function setRunning(running) {
   state.running = running;
+  gameSelector.setDisabled(running);
+  if (!running) state.paused = false;
+  el.pause.hidden = !running;
+  el.pause.disabled = false;
+  el.pause.textContent = state.paused ? 'Resume' : 'Pause';
   el.chooseManifest.disabled = running;
   el.chooseDownloader.disabled = running;
   el.chooseKeys.disabled = running;
   el.chooseFolder.disabled = running;
+  el.validate.disabled = running;
   el.appID.disabled = running;
   el.depotID.disabled = running;
   el.cancel.hidden = !running;
@@ -177,6 +187,8 @@ el.chooseKeys.addEventListener('click', async () => {
   updateReadyState();
 });
 
+el.validate.addEventListener('change', () => { el.footerValidate.textContent = el.validate.checked ? 'VALIDATE ON' : 'VALIDATE OFF'; });
+
 el.appID.addEventListener('input', () => { state.appID = el.appID.value.trim(); el.footerAppID.textContent = state.appID ? `APP ${state.appID}` : 'APP ID NOT SET'; updateReadyState(); });
 el.depotID.addEventListener('input', () => { state.depotID = el.depotID.value.trim(); updateReadyState(); });
 
@@ -199,7 +211,7 @@ el.chooseFolder.addEventListener('click', async () => {
 
 el.start.addEventListener('click', async () => {
   setRunning(true); state.lines = []; el.log.textContent = ''; el.lineCount.textContent = '0 lines'; updateProgress(0); el.report.hidden = true;
-  try { await StartDownload({ manifestPath: state.manifest.path, gameFolder: state.gameFolder, downloaderPath: state.downloaderPath, keysPath: state.keysPath, appId: state.appID, depotId: state.depotID }); }
+  try { await StartDownload({ manifestPath: state.manifest.path, gameFolder: state.gameFolder, downloaderPath: state.downloaderPath, keysPath: state.keysPath, appId: state.appID, depotId: state.depotID, validate: el.validate.checked }); }
   catch (error) { setRunning(false); el.header.dataset.state = 'error'; el.headerLabel.textContent = 'Needs attention'; el.status.textContent = 'Download could not start'; el.message.textContent = errorText(error); el.start.dataset.state = 'error'; }
 });
 
@@ -236,6 +248,13 @@ updateConsoleLabel();
 
 el.close.addEventListener('click', () => Quit());
 
+el.pause.addEventListener('click', async () => {
+  el.pause.disabled = true;
+  el.status.textContent = state.paused ? 'Resuming download...' : 'Pausing downloader...';
+  try { await (state.paused ? ResumeDownload() : PauseDownload()); }
+  catch (error) { el.pause.disabled = false; el.message.textContent = errorText(error); }
+});
+
 el.cancel.addEventListener('click', () => {
   el.cancel.disabled = true; el.status.textContent = 'Stopping downloader…';
   CancelDownload().finally(() => { el.cancel.disabled = false; });
@@ -244,7 +263,21 @@ el.cancel.addEventListener('click', () => {
 try {
   EventsOn('download:update', (update) => {
     updateProgress(update.progress); updateReport(update, update.state !== 'running'); el.status.textContent = update.message; appendLine(update.line);
-    if (update.state === 'running') return;
+    if (update.state === 'paused') {
+      state.paused = true;
+      el.pause.disabled = false;
+      el.pause.textContent = 'Resume';
+      el.start.dataset.state = 'default';
+      $('.button__label').textContent = 'Paused';
+      el.header.dataset.state = 'paused';
+      el.headerLabel.textContent = 'Paused';
+      el.message.textContent = update.message;
+      return;
+    }
+    if (update.state === 'running') {
+      if (state.paused) { state.paused = false; setRunning(true); el.report.hidden = true; }
+      return;
+    }
     setRunning(false);
     el.header.dataset.state = update.state;
     el.headerLabel.textContent = { complete: 'Complete', cancelled: 'Cancelled', error: 'Needs attention' }[update.state] || 'Ready';

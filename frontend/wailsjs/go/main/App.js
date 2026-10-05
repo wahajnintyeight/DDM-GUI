@@ -6,6 +6,18 @@ export function CancelDownload() {
   return window['go']['main']['App']['CancelDownload']();
 }
 
+export function PauseDownload() {
+  return window['go']['main']['App']['PauseDownload']();
+}
+
+export function ResumeDownload() {
+  return window['go']['main']['App']['ResumeDownload']();
+}
+
+export function SearchSteamGames(arg1) {
+  return window['go']['main']['App']['SearchSteamGames'](arg1);
+}
+
 export function SelectDownloader() {
   return window['go']['main']['App']['SelectDownloader']();
 }

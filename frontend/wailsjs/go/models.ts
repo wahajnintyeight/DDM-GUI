@@ -7,6 +7,7 @@ export namespace main {
 	    keysPath: string;
 	    appId: string;
 	    depotId: string;
+	    validate: boolean;
 	
 	    static createFrom(source: any = {}) {
 	        return new DownloadRequest(source);
@@ -20,6 +21,7 @@ export namespace main {
 	        this.keysPath = source["keysPath"];
 	        this.appId = source["appId"];
 	        this.depotId = source["depotId"];
+	        this.validate = source["validate"];
 	    }
 	}
 	export class ManifestInfo {
@@ -38,6 +40,20 @@ export namespace main {
 	        this.name = source["name"];
 	        this.depotId = source["depotId"];
 	        this.manifestId = source["manifestId"];
+	    }
+	}
+	export class SteamGame {
+	    id: number;
+	    name: string;
+
+	    static createFrom(source: any = {}) {
+	        return new SteamGame(source);
+	    }
+
+	    constructor(source: any = {}) {
+	        if ('string' === typeof source) source = JSON.parse(source);
+	        this.id = source["id"];
+	        this.name = source["name"];
 	    }
 	}
 

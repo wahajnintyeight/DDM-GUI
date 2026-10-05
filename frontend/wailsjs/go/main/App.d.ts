@@ -4,6 +4,12 @@ import {main} from '../models';
 
 export function CancelDownload():Promise<void>;
 
+export function PauseDownload():Promise<void>;
+
+export function ResumeDownload():Promise<void>;
+
+export function SearchSteamGames(arg1:string):Promise<Array<main.SteamGame>>;
+
 export function SelectDownloader():Promise<string>;
 
 export function SelectGameFolder():Promise<string>;
