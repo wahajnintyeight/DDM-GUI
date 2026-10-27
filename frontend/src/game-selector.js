@@ -2,13 +2,14 @@ import { SearchSteamGames } from '../wailsjs/go/main/App';
 import './game-selector.css';
 
 export function createGameSelector(root, appInput) {
-  root.innerHTML = `<div class="game-mode" role="group" aria-label="Choose how to enter the game"><button type="button" data-mode="search" aria-pressed="true">Search game</button><button type="button" data-mode="manual" aria-pressed="false">Enter app ID</button></div>
-    <div class="game-search"><label for="game-query" class="game-search__label">Steam game</label><input id="game-query" type="text" role="combobox" aria-autocomplete="list" aria-expanded="false" aria-controls="game-results" aria-describedby="game-search-status" autocomplete="off" maxlength="200" placeholder="Type a game name"><div class="game-popup" hidden><div id="game-results" role="listbox" aria-label="Steam search results"></div></div><p id="game-search-status" role="status">Type at least 1 character. Up to 10 results.</p></div>`;
+  root.innerHTML = `<div class="game-mode" role="group" aria-label="Choose how to enter the game"><button type="button" data-mode="search" aria-pressed="true">Search by name</button><button type="button" data-mode="manual" aria-pressed="false">Enter app ID</button></div>
+    <div class="game-search"><label for="game-query" class="game-search__label sr-only">Game name</label><input id="game-query" type="text" role="combobox" aria-autocomplete="list" aria-expanded="false" aria-controls="game-results" aria-describedby="game-search-status" autocomplete="off" maxlength="200" placeholder="Start typing, for example Cricket 26"><div class="game-popup" hidden><div id="game-results" role="listbox" aria-label="Steam search results"></div></div><p id="game-search-status" role="status">Type a game name, then pick it from the list.</p></div>`;
   const input = root.querySelector('#game-query');
   const search = root.querySelector('.game-search');
   const popup = root.querySelector('.game-popup');
   const list = root.querySelector('#game-results');
   const status = root.querySelector('#game-search-status');
+  const appField = appInput.closest('.app-id-field');
   const modes = [...root.querySelectorAll('[data-mode]')];
   let games = [], active = -1, version = 0, timer, disabled = false;
 
@@ -39,7 +40,8 @@ export function createGameSelector(root, appInput) {
     input.value = game.name;
     appInput.value = String(game.id);
     appInput.dispatchEvent(new Event('input', { bubbles: true }));
-    status.textContent = `Selected ${game.name}. App ID ${game.id}.`;
+    status.textContent = `Selected ${game.name} (App ID ${game.id}).`;
+    root.dataset.selected = 'true';
     close();
   }
   async function runSearch(term, requestVersion) {
@@ -63,11 +65,11 @@ export function createGameSelector(root, appInput) {
         option.addEventListener('click', () => select(index));
         list.append(option);
       });
-      status.textContent = games.length ? `${games.length} results. Select a title to fill its app ID.` : 'No results. Try another name or enter the app ID.';
+      status.textContent = games.length ? `${games.length} ${games.length === 1 ? 'result' : 'results'}. Click one to choose it.` : 'No games found. Try another name, or switch to “Enter App ID”.';
       open();
     } catch (error) {
       if (requestVersion !== version || disabled) return;
-      status.textContent = typeof error === 'string' ? error : error?.message || 'Search unavailable. Enter the app ID manually.';
+      status.textContent = typeof error === 'string' ? error : error?.message || 'Search isn’t working right now. Switch to “Enter App ID” instead.';
       close();
     }
   }
@@ -81,7 +83,8 @@ export function createGameSelector(root, appInput) {
     appInput.value = '';
     appInput.dispatchEvent(new Event('input', { bubbles: true }));
     const term = input.value.trim();
-    status.textContent = term ? 'Searching Steam...' : 'Type at least 1 character. Up to 10 results.';
+    delete root.dataset.selected;
+    status.textContent = term ? 'Searching Steam...' : 'Type a game name, then pick it from the list.';
     if (term) timer = setTimeout(() => runSearch(term, requestVersion), 300);
   });
   input.addEventListener('focus', open);
@@ -104,17 +107,19 @@ export function createGameSelector(root, appInput) {
     const manual = button.dataset.mode === 'manual';
     modes.forEach(mode => mode.setAttribute('aria-pressed', String(mode === button)));
     search.hidden = manual;
+    appField.hidden = !manual;
     appInput.readOnly = !manual;
-    if (manual) { appInput.focus(); status.textContent = 'Type at least 1 character. Up to 10 results.'; }
+    if (manual) { appInput.focus(); status.textContent = 'Type a game name, then pick it from the list.'; }
     else { input.focus(); if (!games.length && input.value.trim()) input.dispatchEvent(new Event('input')); }
   }));
   appInput.readOnly = true;
+  appField.hidden = true;
   appInput.addEventListener('input', () => {
     if (appInput.readOnly) return;
     input.value = '';
     games = [];
     list.replaceChildren();
-    status.textContent = 'Type at least 1 character. Up to 10 results.';
+    status.textContent = 'Type a game name, then pick it from the list.';
   });
   return {
     setDisabled(value) {
