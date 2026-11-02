@@ -202,33 +202,42 @@ func parseManifestPayload(section []byte, manifest *DepotManifest) error {
 	})
 }
 
-// decryptManifestNames mirrors SteamKit: base64, then AES-256 with an ECB-encrypted IV block followed by CBC data.
+// decryptManifestNames decrypts every filename with the depot key.
 func decryptManifestNames(manifest *DepotManifest, key []byte) error {
-	block, err := aes.NewCipher(key)
-	if err != nil {
-		return errors.New("has a depot key of the wrong length (expected 64 hex characters)")
-	}
 	for index := range manifest.Files {
-		encrypted, err := base64.StdEncoding.DecodeString(manifest.Files[index].Name)
-		if err != nil || len(encrypted) < 2*aes.BlockSize || len(encrypted)%aes.BlockSize != 0 {
-			return errors.New("could not decrypt its filenames; the depot key is probably wrong")
-		}
-		iv := make([]byte, aes.BlockSize)
-		block.Decrypt(iv, encrypted[:aes.BlockSize])
-		plain := make([]byte, len(encrypted)-aes.BlockSize)
-		cipher.NewCBCDecrypter(block, iv).CryptBlocks(plain, encrypted[aes.BlockSize:])
-		pad := int(plain[len(plain)-1])
-		if pad < 1 || pad > aes.BlockSize || pad > len(plain) {
-			return errors.New("could not decrypt its filenames; the depot key is probably wrong")
-		}
-		name := strings.TrimRight(string(plain[:len(plain)-pad]), "\x00")
-		if name == "" || strings.ContainsRune(name, '�') {
-			return errors.New("could not decrypt its filenames; the depot key is probably wrong")
+		name, err := decryptName(key, manifest.Files[index].Name)
+		if err != nil {
+			return err
 		}
 		manifest.Files[index].Name = name
 	}
 	manifest.FilenamesEncrypted = false
 	return nil
+}
+
+// decryptName mirrors SteamKit: base64, then AES-256 with an ECB-encrypted IV block followed by CBC data.
+func decryptName(key []byte, encoded string) (string, error) {
+	block, err := aes.NewCipher(key)
+	if err != nil {
+		return "", errors.New("has a depot key of the wrong length (expected 64 hex characters)")
+	}
+	encrypted, err := base64.StdEncoding.DecodeString(encoded)
+	if err != nil || len(encrypted) < 2*aes.BlockSize || len(encrypted)%aes.BlockSize != 0 {
+		return "", errors.New("could not decrypt its filenames; the depot key is probably wrong")
+	}
+	iv := make([]byte, aes.BlockSize)
+	block.Decrypt(iv, encrypted[:aes.BlockSize])
+	plain := make([]byte, len(encrypted)-aes.BlockSize)
+	cipher.NewCBCDecrypter(block, iv).CryptBlocks(plain, encrypted[aes.BlockSize:])
+	pad := int(plain[len(plain)-1])
+	if pad < 1 || pad > aes.BlockSize || pad > len(plain) {
+		return "", errors.New("could not decrypt its filenames; the depot key is probably wrong")
+	}
+	name := strings.TrimRight(string(plain[:len(plain)-pad]), "\x00")
+	if name == "" || strings.ContainsRune(name, '�') {
+		return "", errors.New("could not decrypt its filenames; the depot key is probably wrong")
+	}
+	return name, nil
 }
 
 // walkProto iterates the top-level fields of a protobuf message. Varint fields pass their value;
@@ -276,4 +285,14 @@ func walkProto(data []byte, visit func(field int, value uint64, raw []byte) erro
 		}
 	}
 	return nil
+}
+
+func protoVarint(field int, value uint64) []byte {
+	return binary.AppendUvarint(binary.AppendUvarint(nil, uint64(field<<3)), value)
+}
+
+func protoBytes(field int, value []byte) []byte {
+	out := binary.AppendUvarint(nil, uint64(field<<3|2))
+	out = binary.AppendUvarint(out, uint64(len(value)))
+	return append(out, value...)
 }

@@ -20,7 +20,7 @@ The patch applies to upstream `SteamAutoCracks/DepotDownloaderMod` at commit `c0
 
 ## Build
 
-You need the .NET 9 SDK and git.
+You need git and a .NET SDK, version 9 or newer (the script ignores upstream's SDK 9.0.100 pin so a newer SDK such as 10 works).
 
 ```powershell
 ./build.ps1            # clones upstream, applies the patch, publishes a single-file DepotDownloaderMod.exe

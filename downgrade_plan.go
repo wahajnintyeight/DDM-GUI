@@ -1,8 +1,10 @@
 package main
 
 import (
+	"compress/flate"
 	"errors"
 	"fmt"
+	"io"
 	"os"
 	"path"
 	"path/filepath"
@@ -314,30 +316,91 @@ func inspectDepotState(root string, covered map[string]bool) (hasState bool, oth
 	if stat, err := os.Stat(filepath.Dir(config)); err == nil && stat.IsDir() {
 		hasState = true
 	}
-	data, err := os.ReadFile(config)
+	installed, err := readDepotConfig(config)
 	if err != nil {
 		return hasState, nil
 	}
-	_ = walkProto(data, func(field int, _ uint64, raw []byte) error {
+	for depot := range installed {
+		if id := strconv.FormatUint(uint64(depot), 10); !covered[id] {
+			others = append(others, id)
+		}
+	}
+	sort.Strings(others)
+	return hasState, others
+}
+
+// readDepotConfig reads .DepotDownloader/depot.config: a deflate-compressed protobuf map of depot ID to the
+// installed manifest ID. A missing file is an empty map.
+func readDepotConfig(config string) (map[uint32]uint64, error) {
+	file, err := os.Open(config)
+	if os.IsNotExist(err) {
+		return map[uint32]uint64{}, nil
+	}
+	if err != nil {
+		return nil, err
+	}
+	defer file.Close()
+	data, err := io.ReadAll(io.LimitReader(flate.NewReader(file), 8<<20))
+	if err != nil {
+		return nil, err
+	}
+	installed := map[uint32]uint64{}
+	err = walkProto(data, func(field int, _ uint64, raw []byte) error {
 		if field != 1 || raw == nil {
 			return nil
 		}
-		var depot uint64
+		var depot, manifest uint64
 		_ = walkProto(raw, func(field int, value uint64, _ []byte) error {
-			if field == 1 {
+			switch field {
+			case 1:
 				depot = value
+			case 2:
+				manifest = value
 			}
 			return nil
 		})
-		id := strconv.FormatUint(depot, 10)
-		// An "invalid" marker still means the depot has been installed into this folder.
-		if depot != 0 && !covered[id] {
-			others = append(others, id)
+		if depot != 0 {
+			installed[uint32(depot)] = manifest
 		}
 		return nil
 	})
-	sort.Strings(others)
-	return hasState, others
+	return installed, err
+}
+
+// writeDepotConfig writes the map back in the downloader's own format.
+func writeDepotConfig(config string, installed map[uint32]uint64) error {
+	var data []byte
+	depots := make([]uint32, 0, len(installed))
+	for depot := range installed {
+		depots = append(depots, depot)
+	}
+	sort.Slice(depots, func(i, j int) bool { return depots[i] < depots[j] })
+	for _, depot := range depots {
+		entry := protoVarint(1, uint64(depot))
+		entry = append(entry, protoVarint(2, installed[depot])...)
+		data = append(data, protoBytes(1, entry)...)
+	}
+	if err := os.MkdirAll(filepath.Dir(config), 0o755); err != nil {
+		return err
+	}
+	file, err := os.Create(config)
+	if err != nil {
+		return err
+	}
+	compressor, err := flate.NewWriter(file, flate.DefaultCompression)
+	if err != nil {
+		file.Close()
+		return err
+	}
+	if _, err := compressor.Write(data); err != nil {
+		file.Close()
+		return err
+	}
+	if err := compressor.Close(); err != nil {
+		file.Close()
+		return err
+	}
+	return file.Close()
 }
 
 // downgradeArguments builds one downloader invocation per depot. Only Downgrade uses -sourcemanifestfile.

@@ -247,11 +247,9 @@ func TestPlanRequiresOtherInstalledDepots(t *testing.T) {
 	fixture := newDowngradeFixture(t, files, files[:0], false)
 	state := filepath.Join(fixture.root, ".DepotDownloader")
 	_ = os.MkdirAll(state, 0o755)
-	entry := func(depot, manifest uint64) []byte {
-		return pbBytes(1, append(pbVarint(1, depot), pbVarint(2, manifest)...))
+	if err := writeDepotConfig(filepath.Join(state, "depot.config"), map[uint32]uint64{3468651: 200, 3468652: 55}); err != nil {
+		t.Fatal(err)
 	}
-	config := append(entry(3468651, 200), entry(3468652, 55)...)
-	_ = os.WriteFile(filepath.Join(state, "depot.config"), config, 0o600)
 	writeGameFile(t, fixture.root, "a.bin", 1)
 
 	if _, err := planDowngrade(fixture.request); err == nil || !strings.Contains(err.Error(), "3468652") {
@@ -275,7 +273,7 @@ func TestFinishDowngradeVerifiesThenRemoves(t *testing.T) {
 	current := []testFile{{name: "keep.bin", size: 5}, {name: "gone.dat", size: 7}}
 	target := []testFile{{name: "keep.bin", size: 4}}
 	fixture := newDowngradeFixture(t, current, target, false)
-	writeGameFile(t, fixture.root, "keep.bin", 5) // still the larger current-version size
+	writeGameFile(t, fixture.root, "keep.bin", 3) // too short for the target size
 	writeGameFile(t, fixture.root, "gone.dat", 7)
 	writeGameFile(t, fixture.root, "unrelated.sav", 2)
 	plan, err := planDowngrade(fixture.request)
@@ -291,7 +289,7 @@ func TestFinishDowngradeVerifiesThenRemoves(t *testing.T) {
 		t.Fatal("stale file was removed even though the target was not right")
 	}
 
-	writeGameFile(t, fixture.root, "keep.bin", 4)
+	writeGameFile(t, fixture.root, "keep.bin", 6) // too long: cut back to the target size
 	update = finishDowngrade(plan, DownloadUpdate{State: "complete"})
 	if update.State != "complete" || !strings.Contains(update.Message, "Removed 1") {
 		t.Fatalf("finish = %+v", update)
@@ -356,5 +354,54 @@ func TestReadManifestIdentityNeedsNoKey(t *testing.T) {
 	_ = os.WriteFile(garbage, []byte("nope"), 0o600)
 	if _, err := readManifestIdentity(garbage); err == nil {
 		t.Fatal("garbage was accepted")
+	}
+}
+
+func TestStageDowngradeForStockDownloader(t *testing.T) {
+	for _, encrypt := range []bool{false, true} {
+		current := []testFile{{name: "keep.bin", size: 5}, {name: "gone.dat", size: 7}}
+		target := []testFile{{name: "keep.bin", size: 4}}
+		fixture := newDowngradeFixture(t, current, target, encrypt)
+		other := filepath.Join(fixture.root, ".DepotDownloader")
+		_ = os.MkdirAll(other, 0o755)
+		_ = writeDepotConfig(filepath.Join(other, "depot.config"), map[uint32]uint64{3468651: 1, 3468652: 55})
+		plan, err := planDowngrade(DowngradeRequest{AppID: fixture.request.AppID, GameFolder: fixture.root, DownloaderPath: fixture.downloader, KeysPath: fixture.keys, Depots: fixture.request.Depots, AcknowledgePartial: true})
+		if err != nil {
+			t.Fatal(err)
+		}
+		if err := stageDowngrade(plan); err != nil {
+			t.Fatal(err)
+		}
+		installed, err := readDepotConfig(filepath.Join(other, "depot.config"))
+		if err != nil || installed[3468651] != 200 || installed[3468652] != 55 {
+			t.Fatalf("depot.config = %v, %v", installed, err)
+		}
+		staged := func(id string) *DepotManifest {
+			path := filepath.Join(other, "3468651_"+id+".manifest")
+			data, err := os.ReadFile(path)
+			if err != nil {
+				t.Fatal(err)
+			}
+			sum, _ := os.ReadFile(path + ".sha")
+			if len(sum) != 20 {
+				t.Fatalf("sha file has %d bytes", len(sum))
+			}
+			manifest, err := parseManifest(data, nil) // no key: names must already be plain
+			if err != nil {
+				t.Fatal(err)
+			}
+			return manifest
+		}
+		trimmed, full := staged("200"), staged("100")
+		if len(trimmed.Files) != 1 || trimmed.Files[0].Name != "keep.bin" || trimmed.ManifestID != 200 {
+			t.Fatalf("current copy = %+v", trimmed)
+		}
+		if len(full.Files) != 1 || full.Files[0].Name != "keep.bin" || full.Files[0].Size != 4 {
+			t.Fatalf("target copy = %+v", full)
+		}
+		args := strings.Join(compatArguments(plan)[0], " ")
+		if strings.Contains(args, "-manifestfile") || strings.Contains(args, downgradeFlag) || !strings.Contains(args, "-validate") {
+			t.Fatalf("args = %s", args)
+		}
 	}
 }

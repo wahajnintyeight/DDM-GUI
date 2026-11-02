@@ -53,18 +53,12 @@ func (a *App) PreflightDowngrade(request DowngradeRequest) (DowngradeSummary, er
 	if err != nil {
 		return DowngradeSummary{}, err
 	}
-	if err := requireDowngradeDownloader(plan.request.DownloaderPath); err != nil {
-		return DowngradeSummary{}, err
-	}
 	return plan.summary, nil
 }
 
 func (a *App) StartDowngrade(request DowngradeRequest) error {
 	plan, err := planDowngrade(request)
 	if err != nil {
-		return err
-	}
-	if err := requireDowngradeDownloader(plan.request.DownloaderPath); err != nil {
 		return err
 	}
 
@@ -89,19 +83,6 @@ func (a *App) StartDowngrade(request DowngradeRequest) error {
 	}, func(update DownloadUpdate) DownloadUpdate {
 		return finishDowngrade(plan, update)
 	}, emit)
-	return nil
-}
-
-// requireDowngradeDownloader makes sure the chosen downloader knows -sourcemanifestfile, so an unpatched
-// build can never silently compare the target manifest with itself.
-func requireDowngradeDownloader(path string) error {
-	supported, err := downloaderSupportsDowngrade(path)
-	if err != nil {
-		return err
-	}
-	if !supported {
-		return errors.New("this DepotDownloaderMod cannot downgrade. Choose the DepotDownloaderMod build that includes " + downgradeFlag)
-	}
 	return nil
 }
 
@@ -137,7 +118,17 @@ func downloaderSupportsDowngrade(path string) (bool, error) {
 // downgradeAttempt runs the downloader once per depot. A resumed attempt starts again from the first depot;
 // files that already match the target are recognised and skipped, so nothing is downloaded twice.
 func downgradeAttempt(ctx context.Context, plan *downgradePlan, emit func(DownloadUpdate)) DownloadUpdate {
-	commands := downgradeArguments(plan)
+	// A downloader that knows -sourcemanifestfile compares the two manifests directly; any other build is
+	// driven through prepared .DepotDownloader state.
+	var commands [][]string
+	if patched, _ := downloaderSupportsDowngrade(plan.request.DownloaderPath); patched {
+		commands = downgradeArguments(plan)
+	} else {
+		if err := stageDowngrade(plan); err != nil {
+			return DownloadUpdate{State: "error", Message: "Could not prepare the downgrade: " + err.Error()}
+		}
+		commands = compatArguments(plan)
+	}
 	total := float64(len(commands))
 	var elapsed float64
 	var downloaded, uncompressed int64
@@ -170,6 +161,7 @@ func downgradeAttempt(ctx context.Context, plan *downgradePlan, emit func(Downlo
 // finishDowngrade runs only after every depot downloaded successfully: it confirms the target files are
 // right, then removes the files that belonged to the old version only.
 func finishDowngrade(plan *downgradePlan, update DownloadUpdate) DownloadUpdate {
+	trimOversizeFiles(plan)
 	if problem := verifyTargetFiles(plan); problem != "" {
 		update.State, update.Message = "error", "Downgrade stopped before removing anything: "+problem
 		return update
