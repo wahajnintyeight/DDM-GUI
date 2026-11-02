@@ -180,12 +180,23 @@ func (a *App) ResumeDownload() error {
 }
 
 func (a *App) runDownload(ctx, attemptCtx context.Context, executable string, args []string, workingDirectory string, emit func(DownloadUpdate)) {
+	a.runSupervised(ctx, attemptCtx, func(attemptCtx context.Context, emit func(DownloadUpdate)) DownloadUpdate {
+		return downloadAttempt(attemptCtx, executable, args, workingDirectory, emit)
+	}, nil, emit)
+}
+
+// runSupervised owns pause, resume and cancel for any job made of repeatable attempts. finalize, when set,
+// runs once after an attempt completes successfully and may turn that result into an error.
+func (a *App) runSupervised(ctx, attemptCtx context.Context, attempt func(context.Context, func(DownloadUpdate)) DownloadUpdate, finalize func(DownloadUpdate) DownloadUpdate, emit func(DownloadUpdate)) {
 	var update DownloadUpdate
 	activeSeconds := 0.0
 	for {
-		update = downloadAttempt(attemptCtx, executable, args, workingDirectory, emit)
+		update = attempt(attemptCtx, emit)
 		activeSeconds += update.ElapsedSeconds
 		update.ElapsedSeconds = activeSeconds
+		if update.State == "complete" && finalize != nil && ctx.Err() == nil {
+			update = finalize(update)
+		}
 		a.mu.Lock()
 		a.pauseCancel(nil)
 		a.pauseCancel = nil

@@ -2,6 +2,7 @@ import '@awesome.me/webawesome/dist/styles/themes/default.css';
 import '@awesome.me/webawesome/dist/components/details/details.js';
 import './style.css';
 import { createGameSelector } from './game-selector';
+import { createDowngrade } from './downgrade';
 import { CancelDownload, PauseDownload, ResumeDownload, SelectDownloader, SelectGameFolder, SelectKeys, SelectManifest, StartDownload } from '../wailsjs/go/main/App';
 import { EventsOn, Quit, WindowIsMaximised, WindowMinimise, WindowToggleMaximise } from '../wailsjs/runtime/runtime';
 
@@ -12,9 +13,9 @@ document.documentElement.dataset.theme = initialTheme;
 document.documentElement.classList.add('wa-theme-default', 'wa-palette-default', 'wa-brand-blue');
 document.documentElement.classList.toggle('wa-dark', initialTheme === 'dark');
 document.querySelector('#app').innerHTML = `
-<header class="app-header"><div class="brand"><span class="brand__mark">D</span><span class="brand__name">DepotDrop</span></div><div class="header-actions"><button class="theme-toggle" id="theme-toggle" type="button" aria-pressed="${initialTheme === 'dark'}"><svg class="theme-toggle__sun" aria-hidden="true" viewBox="0 0 24 24"><circle cx="12" cy="12" r="4"/><path d="M12 2v2M12 20v2M4.93 4.93l1.41 1.41M17.66 17.66l1.41 1.41M2 12h2M20 12h2M4.93 19.07l1.41-1.41M17.66 6.34l1.41-1.41"/></svg><svg class="theme-toggle__moon" aria-hidden="true" viewBox="0 0 24 24"><path d="M20.3 15.2A8.5 8.5 0 0 1 8.8 3.7 8.5 8.5 0 1 0 20.3 15.2Z"/></svg><span id="theme-label">${initialTheme === 'dark' ? 'Light' : 'Dark'}</span></button><div class="header-state" aria-live="polite"><span class="header-state__light"></span><span id="header-state-label">Ready</span></div><div class="window-controls" role="group" aria-label="Window controls"><button class="window-control" id="window-minimize" type="button" aria-label="Minimize DepotDrop" title="Minimize"><svg aria-hidden="true" viewBox="0 0 24 24"><path d="M5 12h14"/></svg></button><button class="window-control" id="window-maximize" type="button" aria-label="Maximize DepotDrop" title="Maximize"><svg class="maximize-icon" aria-hidden="true" viewBox="0 0 24 24"><path d="M6.5 6.5h11v11h-11z"/></svg><svg class="restore-icon" aria-hidden="true" viewBox="0 0 24 24"><path d="M8 8h10v10H8zM6 16V6h10"/></svg></button><button class="window-control window-control--close" id="window-close" type="button" aria-label="Close DepotDrop" title="Close"><svg aria-hidden="true" viewBox="0 0 24 24"><path d="m7 7 10 10M17 7 7 17"/></svg></button></div></div></header>
-<main class="workspace">
-  <section class="setup" aria-labelledby="setup-title"><div class="setup__inner">
+<header class="app-header"><div class="brand"><span class="brand__mark">D</span><span class="brand__name">DepotDrop</span></div><nav class="mode-nav" aria-label="Choose a task"><button type="button" data-mode="download" aria-pressed="true">Download</button><button type="button" data-mode="downgrade" aria-pressed="false">Downgrade</button></nav><div class="header-actions"><button class="theme-toggle" id="theme-toggle" type="button" aria-pressed="${initialTheme === 'dark'}"><svg class="theme-toggle__sun" aria-hidden="true" viewBox="0 0 24 24"><circle cx="12" cy="12" r="4"/><path d="M12 2v2M12 20v2M4.93 4.93l1.41 1.41M17.66 17.66l1.41 1.41M2 12h2M20 12h2M4.93 19.07l1.41-1.41M17.66 6.34l1.41-1.41"/></svg><svg class="theme-toggle__moon" aria-hidden="true" viewBox="0 0 24 24"><path d="M20.3 15.2A8.5 8.5 0 0 1 8.8 3.7 8.5 8.5 0 1 0 20.3 15.2Z"/></svg><span id="theme-label">${initialTheme === 'dark' ? 'Light' : 'Dark'}</span></button><div class="header-state" aria-live="polite"><span class="header-state__light"></span><span id="header-state-label">Ready</span></div><div class="window-controls" role="group" aria-label="Window controls"><button class="window-control" id="window-minimize" type="button" aria-label="Minimize DepotDrop" title="Minimize"><svg aria-hidden="true" viewBox="0 0 24 24"><path d="M5 12h14"/></svg></button><button class="window-control" id="window-maximize" type="button" aria-label="Maximize DepotDrop" title="Maximize"><svg class="maximize-icon" aria-hidden="true" viewBox="0 0 24 24"><path d="M6.5 6.5h11v11h-11z"/></svg><svg class="restore-icon" aria-hidden="true" viewBox="0 0 24 24"><path d="M8 8h10v10H8zM6 16V6h10"/></svg></button><button class="window-control window-control--close" id="window-close" type="button" aria-label="Close DepotDrop" title="Close"><svg aria-hidden="true" viewBox="0 0 24 24"><path d="m7 7 10 10M17 7 7 17"/></svg></button></div></div></header>
+<main class="workspace" data-mode="download">
+  <section class="setup" data-view="download" aria-labelledby="setup-title"><div class="setup__inner">
     <div class="setup__intro"><h1 id="setup-title">Set up your download</h1><p>Three quick steps. DepotDrop handles the technical part for you.</p></div>
 
     <section class="step" id="step-game" data-done="false" aria-labelledby="step-game-title">
@@ -67,7 +68,7 @@ document.querySelector('#app').innerHTML = `
   </div></section>
 
   <aside class="monitor" id="monitor" data-phase="idle" aria-label="Download status">
-    <div class="ready-view" aria-live="polite">
+    <div class="ready-view" data-for="download" aria-live="polite">
       <p class="monitor__label">Your download</p>
       <h2 id="ready-title">Let’s get started</h2>
       <p id="ready-sub">Finish the steps on the left to unlock the download button.</p>
@@ -79,6 +80,18 @@ document.querySelector('#app').innerHTML = `
         <li data-item="folder" data-done="false"><span class="check"><svg aria-hidden="true" viewBox="0 0 24 24"><path d="m5 12.5 4.5 4.5L19 7.5"/></svg></span>Save folder chosen</li>
       </ul>
     </div>
+    <div class="ready-view" data-for="downgrade" aria-live="polite">
+      <p class="monitor__label">Your downgrade</p>
+      <h2 id="dg-ready-title">Let’s get started</h2>
+      <ul class="checklist" data-checklist="downgrade">
+        <li data-item="game" data-done="false"><span class="check"><svg aria-hidden="true" viewBox="0 0 24 24"><path d="m5 12.5 4.5 4.5L19 7.5"/></svg></span>Game and depot entered</li>
+        <li data-item="versions" data-done="false"><span class="check"><svg aria-hidden="true" viewBox="0 0 24 24"><path d="m5 12.5 4.5 4.5L19 7.5"/></svg></span>Both versions chosen</li>
+        <li data-item="downloader" data-done="false"><span class="check"><svg aria-hidden="true" viewBox="0 0 24 24"><path d="m5 12.5 4.5 4.5L19 7.5"/></svg></span>Downloader program added</li>
+        <li data-item="keys" data-done="false"><span class="check"><svg aria-hidden="true" viewBox="0 0 24 24"><path d="m5 12.5 4.5 4.5L19 7.5"/></svg></span>Keys file added</li>
+        <li data-item="folder" data-done="false"><span class="check"><svg aria-hidden="true" viewBox="0 0 24 24"><path d="m5 12.5 4.5 4.5L19 7.5"/></svg></span>Game folder chosen</li>
+      </ul>
+      <div class="dg-summary" id="dg-summary" hidden></div>
+    </div>
     <div class="progress-view">
       <p class="monitor__label" id="progress-title">Download progress</p>
       <p class="monitor__status" id="progress-status">Getting started</p>
@@ -88,6 +101,7 @@ document.querySelector('#app').innerHTML = `
       <div class="download-report" id="download-report" hidden aria-live="polite"><div class="report-stat"><span>Downloaded</span><strong id="report-downloaded">0 B</strong></div><div class="report-stat"><span>Uncompressed</span><strong id="report-uncompressed">0 B</strong></div><div class="report-stat"><span>Time taken</span><strong id="report-elapsed">0s</strong></div></div>
     </div>
     <div class="actions">
+      <button class="button button--primary button--block" id="start-downgrade" type="button" disabled><span class="button__spinner"></span><span class="button__label">Review downgrade</span></button>
       <button class="button button--primary button--block" id="start-download" type="button" disabled><span class="button__spinner"></span><span class="button__label">Start download</span></button>
       <div class="actions__secondary"><button class="button button--secondary" id="pause-download" type="button" hidden>Pause</button><button class="button button--quiet" id="cancel-download" type="button" hidden>Cancel</button></div>
       <p id="form-message" class="form-message" aria-live="polite">Complete the steps to unlock this button.</p>
@@ -97,13 +111,14 @@ document.querySelector('#app').innerHTML = `
 </main>`;
 
 const $ = (selector) => document.querySelector(selector);
-const el = { manifestField: $('#manifest-field'), manifestPath: $('#manifest-path'), manifestHelp: $('#manifest-help'), downloaderField: $('#downloader-field'), downloaderPath: $('#downloader-path'), downloaderHelp: $('#downloader-help'), keysField: $('#keys-field'), keysPath: $('#keys-path'), keysHelp: $('#keys-help'), folderField: $('#folder-field'), gameFolder: $('#game-folder'), appID: $('#app-id'), depotID: $('#depot-id'), validate: $('#validate-download'), monitor: $('#monitor'), readyTitle: $('#ready-title'), readySub: $('#ready-sub'), stepGame: $('#step-game'), stepFiles: $('#step-files'), stepFolder: $('#step-folder'), checklist: [...document.querySelectorAll('.checklist li')], chooseManifest: $('#choose-manifest'), chooseDownloader: $('#choose-downloader'), chooseKeys: $('#choose-keys'), chooseFolder: $('#choose-folder'), start: $('#start-download'), cancel: $('#cancel-download'), pause: $('#pause-download'), message: $('#form-message'), header: $('.header-state'), headerLabel: $('#header-state-label'), status: $('#progress-status'), percent: $('#progress-percent'), track: $('.progress-track'), fill: $('#progress-fill'), currentLine: $('#current-line'), report: $('#download-report'), reportDownloaded: $('#report-downloaded'), reportUncompressed: $('#report-uncompressed'), reportElapsed: $('#report-elapsed'), consolePanel: $('#console-panel'), consoleLabel: $('.console-toggle__label'), lineCount: $('#line-count'), log: $('#output-log'), themeToggle: $('#theme-toggle'), themeLabel: $('#theme-label'), windowControls: $('.window-controls'), minimize: $('#window-minimize'), maximize: $('#window-maximize'), close: $('#window-close') };
+const el = { manifestField: $('#manifest-field'), manifestPath: $('#manifest-path'), manifestHelp: $('#manifest-help'), downloaderField: $('#downloader-field'), downloaderPath: $('#downloader-path'), downloaderHelp: $('#downloader-help'), keysField: $('#keys-field'), keysPath: $('#keys-path'), keysHelp: $('#keys-help'), folderField: $('#folder-field'), gameFolder: $('#game-folder'), appID: $('#app-id'), depotID: $('#depot-id'), validate: $('#validate-download'), monitor: $('#monitor'), workspace: $('.workspace'), readyTitle: $('#ready-title'), readySub: $('#ready-sub'), stepGame: $('#step-game'), stepFiles: $('#step-files'), stepFolder: $('#step-folder'), checklist: [...document.querySelectorAll('.checklist li')], chooseManifest: $('#choose-manifest'), chooseDownloader: $('#choose-downloader'), chooseKeys: $('#choose-keys'), chooseFolder: $('#choose-folder'), start: $('#start-download'), cancel: $('#cancel-download'), pause: $('#pause-download'), message: $('#form-message'), header: $('.header-state'), headerLabel: $('#header-state-label'), status: $('#progress-status'), percent: $('#progress-percent'), track: $('.progress-track'), fill: $('#progress-fill'), currentLine: $('#current-line'), report: $('#download-report'), reportDownloaded: $('#report-downloaded'), reportUncompressed: $('#report-uncompressed'), reportElapsed: $('#report-elapsed'), consolePanel: $('#console-panel'), consoleLabel: $('.console-toggle__label'), lineCount: $('#line-count'), log: $('#output-log'), themeToggle: $('#theme-toggle'), themeLabel: $('#theme-label'), windowControls: $('.window-controls'), minimize: $('#window-minimize'), maximize: $('#window-maximize'), close: $('#window-close') };
 const state = { manifest: null, gameFolder: '', downloaderPath: '', keysPath: '', appID: '', depotID: '', running: false, paused: false, lines: [] };
 const errorText = (error) => typeof error === 'string' ? error : error?.message || String(error);
 
 const gameSelector = createGameSelector($('#game-selector'), el.appID);
 
 function updateReadyState() {
+  if (el.workspace.dataset.mode === 'downgrade') { document.dispatchEvent(new Event('depotdrop:refresh')); return; }
   const done = {
     game: /^\d+$/.test(state.appID),
     manifest: Boolean(state.manifest),
@@ -151,6 +166,7 @@ function setRunning(running) {
   $('.button__label').textContent = running ? 'Downloading' : 'Start download';
   el.header.dataset.state = running ? 'running' : 'ready';
   el.headerLabel.textContent = running ? 'Running' : 'Ready';
+  document.dispatchEvent(new CustomEvent('depotdrop:running', { detail: running }));
   updateReadyState();
 }
 
@@ -326,6 +342,7 @@ el.cancel.addEventListener('click', () => {
 
 try {
   EventsOn('download:update', (update) => {
+    document.dispatchEvent(new CustomEvent('depotdrop:update', { detail: update }));
     updateProgress(update.progress); updateReport(update, update.state !== 'running'); el.status.textContent = update.message; appendLine(update.line);
     if (update.state === 'paused') {
       state.paused = true;
@@ -350,5 +367,21 @@ try {
     el.message.textContent = update.message;
   });
 } catch {}
+
+function beginRun() {
+  el.monitor.dataset.phase = 'active';
+  setRunning(true); state.lines = []; el.log.textContent = ''; el.lineCount.textContent = '0 lines'; updateProgress(0); el.report.hidden = true;
+}
+function abortRun() { el.monitor.dataset.phase = 'idle'; setRunning(false); }
+
+const downgrade = createDowngrade({ el, state, beginRun, abortRun, errorText, formatBytes });
+document.querySelectorAll('.mode-nav button').forEach((tab) => tab.addEventListener('click', () => {
+  if (state.running || el.workspace.dataset.mode === tab.dataset.mode) return;
+  el.workspace.dataset.mode = tab.dataset.mode;
+  document.querySelectorAll('.mode-nav button').forEach((other) => other.setAttribute('aria-pressed', String(other === tab)));
+  el.monitor.dataset.phase = 'idle';
+  if (tab.dataset.mode === 'downgrade') downgrade.adopt({ downloader: state.downloaderPath, keys: state.keysPath, folder: state.gameFolder, appId: state.appID, depotId: state.depotID });
+  updateReadyState();
+}));
 
 updateReadyState();

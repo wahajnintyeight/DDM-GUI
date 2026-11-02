@@ -1,0 +1,27 @@
+/* Mode switch in the header */
+.mode-nav{--wails-draggable:no-drag;display:inline-flex;gap:var(--space-3xs);margin-inline-start:var(--space-lg);padding:var(--space-3xs);border-radius:var(--radius-sm);background:var(--color-paper-3)}
+.mode-nav button{--wails-draggable:no-drag;min-height:2rem;padding-inline:var(--space-md);border:0;border-radius:var(--radius-xs);background:transparent;color:var(--color-muted);font-size:var(--text-sm);font-weight:600;cursor:pointer;outline:var(--rule-focus) solid transparent;outline-offset:var(--rule-focus)}
+.mode-nav button[aria-pressed=true]{background:var(--color-paper);color:var(--color-ink);box-shadow:0 1px 2px #0002}
+.mode-nav button:focus-visible{outline-color:var(--color-focus)}
+.mode-nav button:hover:not([aria-pressed=true]){color:var(--color-ink)}
+
+/* One task at a time: each mode shows only its own steps, checklist and button */
+.workspace[data-mode=download] [data-view=downgrade],.workspace[data-mode=download] [data-for=downgrade],.workspace[data-mode=download] #start-downgrade,
+.workspace[data-mode=downgrade] [data-view=download],.workspace[data-mode=downgrade] [data-for=download],.workspace[data-mode=downgrade] #start-download{display:none}
+
+/* Downgrade steps */
+.dg-note{margin:var(--space-xs) 0 0;color:var(--color-muted);font-size:var(--text-sm)}
+.dg-add{margin-block-start:var(--space-md)}
+.dg-extra{margin-block-start:var(--space-md);padding:var(--space-sm) var(--space-md) var(--space-md);border-inline-start:3px solid var(--color-rule)}
+.dg-extra__head{display:flex;align-items:center;justify-content:space-between;color:var(--color-ink)}
+.dg-extra__head .button{min-height:2rem}
+
+/* Review summary in the status panel */
+.dg-summary{margin-block-start:var(--space-lg);padding-block-start:var(--space-md);border-block-start:1px solid var(--color-rule)}
+.dg-depots{display:grid;gap:var(--space-xs);margin:0;padding:0;list-style:none}
+.dg-depots li{display:flex;flex-wrap:wrap;justify-content:space-between;gap:var(--space-2xs) var(--space-sm);color:var(--color-ink);font-size:var(--text-sm)}
+.dg-depots span{color:var(--color-muted);font-variant-numeric:tabular-nums}
+.dg-removal{margin:var(--space-sm) 0 0;color:var(--color-ink);font-size:var(--text-sm);font-weight:600}
+.dg-notes{margin:var(--space-xs) 0 0;padding-inline-start:var(--space-md);color:var(--color-muted);font-size:var(--text-sm)}
+.dg-where{margin:var(--space-sm) 0 0;color:var(--color-muted);font-size:var(--text-sm);overflow-wrap:anywhere}
+.dg-where code{font-family:var(--font-mono);font-size:var(--text-xs)}

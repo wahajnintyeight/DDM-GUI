@@ -6,6 +6,10 @@ export function CancelDownload():Promise<void>;
 
 export function PauseDownload():Promise<void>;
 
+export function PickManifestFile(arg1:string):Promise<string>;
+
+export function PreflightDowngrade(arg1:main.DowngradeRequest):Promise<main.DowngradeSummary>;
+
 export function ResumeDownload():Promise<void>;
 
 export function SearchSteamGames(arg1:string):Promise<Array<main.SteamGame>>;
@@ -17,5 +21,7 @@ export function SelectGameFolder():Promise<string>;
 export function SelectKeys():Promise<string>;
 
 export function SelectManifest():Promise<main.ManifestInfo>;
+
+export function StartDowngrade(arg1:main.DowngradeRequest):Promise<void>;
 
 export function StartDownload(arg1:main.DownloadRequest):Promise<void>;

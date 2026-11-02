@@ -14,3 +14,7 @@ DepotDownloaderMod.exe
 *.iml
 .DS_Store
 Thumbs.db
+
+# Downgrade downloader build output
+downloader/work/
+downloader/out/

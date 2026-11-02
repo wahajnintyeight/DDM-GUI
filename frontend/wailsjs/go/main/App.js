@@ -10,6 +10,14 @@ export function PauseDownload() {
   return window['go']['main']['App']['PauseDownload']();
 }
 
+export function PickManifestFile(arg1) {
+  return window['go']['main']['App']['PickManifestFile'](arg1);
+}
+
+export function PreflightDowngrade(arg1) {
+  return window['go']['main']['App']['PreflightDowngrade'](arg1);
+}
+
 export function ResumeDownload() {
   return window['go']['main']['App']['ResumeDownload']();
 }
@@ -32,6 +40,10 @@ export function SelectKeys() {
 
 export function SelectManifest() {
   return window['go']['main']['App']['SelectManifest']();
+}
+
+export function StartDowngrade(arg1) {
+  return window['go']['main']['App']['StartDowngrade'](arg1);
 }
 
 export function StartDownload(arg1) {
