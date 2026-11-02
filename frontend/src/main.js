@@ -85,7 +85,7 @@ document.querySelector('#app').innerHTML = `
       <h2 id="dg-ready-title">Let’s get started</h2>
       <ul class="checklist" data-checklist="downgrade">
         <li data-item="game" data-done="false"><span class="check"><svg aria-hidden="true" viewBox="0 0 24 24"><path d="m5 12.5 4.5 4.5L19 7.5"/></svg></span>Game and depot entered</li>
-        <li data-item="versions" data-done="false"><span class="check"><svg aria-hidden="true" viewBox="0 0 24 24"><path d="m5 12.5 4.5 4.5L19 7.5"/></svg></span>Both versions chosen</li>
+        <li data-item="versions" data-done="false"><span class="check"><svg aria-hidden="true" viewBox="0 0 24 24"><path d="m5 12.5 4.5 4.5L19 7.5"/></svg></span>Both manifest files chosen</li>
         <li data-item="downloader" data-done="false"><span class="check"><svg aria-hidden="true" viewBox="0 0 24 24"><path d="m5 12.5 4.5 4.5L19 7.5"/></svg></span>Downloader program added</li>
         <li data-item="keys" data-done="false"><span class="check"><svg aria-hidden="true" viewBox="0 0 24 24"><path d="m5 12.5 4.5 4.5L19 7.5"/></svg></span>Keys file added</li>
         <li data-item="folder" data-done="false"><span class="check"><svg aria-hidden="true" viewBox="0 0 24 24"><path d="m5 12.5 4.5 4.5L19 7.5"/></svg></span>Game folder chosen</li>

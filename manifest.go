@@ -44,6 +44,14 @@ func (f ManifestFile) IsDirectory() bool { return f.Flags&manifestFlagDirectory 
 
 // loadManifest reads a manifest file. depotKey decrypts filenames when the manifest stores them encrypted.
 func loadManifest(path string, depotKey []byte) (*DepotManifest, error) {
+	data, err := readManifestBytes(path)
+	if err != nil {
+		return nil, err
+	}
+	return parseManifest(data, depotKey)
+}
+
+func readManifestBytes(path string) ([]byte, error) {
 	stat, err := os.Stat(path)
 	if err != nil {
 		return nil, err
@@ -59,12 +67,10 @@ func loadManifest(path string, depotKey []byte) (*DepotManifest, error) {
 		return nil, err
 	}
 	// Manifests downloaded straight from the content servers are zipped around a single entry.
-	if bytes.HasPrefix(data, []byte("PK\x03\x04")) {
-		if data, err = unzipFirstEntry(data); err != nil {
-			return nil, err
-		}
+	if bytes.HasPrefix(data, []byte("PK")) {
+		return unzipFirstEntry(data)
 	}
-	return parseManifest(data, depotKey)
+	return data, nil
 }
 
 func unzipFirstEntry(data []byte) ([]byte, error) {
@@ -81,6 +87,39 @@ func unzipFirstEntry(data []byte) ([]byte, error) {
 }
 
 func parseManifest(data []byte, depotKey []byte) (*DepotManifest, error) {
+	manifest, err := parseManifestSections(data)
+	if err != nil {
+		return nil, err
+	}
+	if manifest.FilenamesEncrypted {
+		if len(depotKey) == 0 {
+			return nil, errors.New("has encrypted filenames and needs the depot key from keys.txt")
+		}
+		if err := decryptManifestNames(manifest, depotKey); err != nil {
+			return nil, err
+		}
+	}
+	return manifest, nil
+}
+
+// readManifestIdentity returns the depot and manifest IDs stored inside a manifest. It needs no depot key.
+func readManifestIdentity(path string) (*DepotManifest, error) {
+	data, err := readManifestBytes(path)
+	if err != nil {
+		return nil, err
+	}
+	manifest, err := parseManifestSections(data)
+	if err != nil {
+		return nil, err
+	}
+	if manifest.DepotID == 0 || manifest.ManifestID == 0 {
+		return nil, errors.New("is not a valid manifest (no depot or manifest ID inside)")
+	}
+	manifest.Files = nil
+	return manifest, nil
+}
+
+func parseManifestSections(data []byte) (*DepotManifest, error) {
 	manifest := &DepotManifest{}
 	var payload []byte
 	sawMetadata := false
@@ -121,14 +160,6 @@ func parseManifest(data []byte, depotKey []byte) (*DepotManifest, error) {
 	}
 	if err := parseManifestPayload(payload, manifest); err != nil {
 		return nil, err
-	}
-	if manifest.FilenamesEncrypted {
-		if len(depotKey) == 0 {
-			return nil, errors.New("has encrypted filenames and needs the depot key from keys.txt")
-		}
-		if err := decryptManifestNames(manifest, depotKey); err != nil {
-			return nil, err
-		}
 	}
 	return manifest, nil
 }

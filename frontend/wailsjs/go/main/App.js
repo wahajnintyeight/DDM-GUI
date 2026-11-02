@@ -6,6 +6,10 @@ export function CancelDownload() {
   return window['go']['main']['App']['CancelDownload']();
 }
 
+export function InspectDowngradeManifest(arg1) {
+  return window['go']['main']['App']['InspectDowngradeManifest'](arg1);
+}
+
 export function PauseDownload() {
   return window['go']['main']['App']['PauseDownload']();
 }

@@ -185,7 +185,7 @@ func planDowngrade(request DowngradeRequest) (*downgradePlan, error) {
 		return nil, err
 	}
 	if len(request.Depots) == 0 {
-		return nil, errors.New("add the depot, the installed manifest and the older manifest")
+		return nil, errors.New("add the depot, the current manifest file and the previous version manifest")
 	}
 
 	plan := &downgradePlan{request: request, root: resolvedRoot}
@@ -206,11 +206,11 @@ func planDowngrade(request DowngradeRequest) (*downgradePlan, error) {
 		seen[depotID] = true
 		id, _ := strconv.ParseUint(depotID, 10, 32)
 
-		currentPath, err := requireReadableFile("the currently installed manifest for depot "+depotID, depot.CurrentManifestPath)
+		currentPath, err := requireReadableFile("the current manifest file for depot "+depotID, depot.CurrentManifestPath)
 		if err != nil {
 			return nil, err
 		}
-		targetPath, err := requireReadableFile("the older target manifest for depot "+depotID, depot.TargetManifestPath)
+		targetPath, err := requireReadableFile("the previous version manifest for depot "+depotID, depot.TargetManifestPath)
 		if err != nil {
 			return nil, err
 		}
@@ -220,26 +220,26 @@ func planDowngrade(request DowngradeRequest) (*downgradePlan, error) {
 		}
 		current, err := loadManifest(currentPath, key)
 		if err != nil {
-			return nil, fmt.Errorf("the currently installed manifest for depot %s %w", depotID, err)
+			return nil, fmt.Errorf("the current manifest file for depot %s %w", depotID, err)
 		}
 		target, err := loadManifest(targetPath, key)
 		if err != nil {
-			return nil, fmt.Errorf("the older target manifest for depot %s %w", depotID, err)
+			return nil, fmt.Errorf("the previous version manifest for depot %s %w", depotID, err)
 		}
-		if err := checkManifestIdentity("the currently installed manifest", currentPath, current, id); err != nil {
+		if err := checkManifestIdentity("the current manifest file", currentPath, current, id); err != nil {
 			return nil, err
 		}
-		if err := checkManifestIdentity("the older target manifest", targetPath, target, id); err != nil {
+		if err := checkManifestIdentity("the previous version manifest", targetPath, target, id); err != nil {
 			return nil, err
 		}
 		if current.ManifestID == target.ManifestID {
-			return nil, fmt.Errorf("depot %s: the installed and older manifests are the same version", depotID)
+			return nil, fmt.Errorf("depot %s: the current manifest file and the previous version manifest are the same version", depotID)
 		}
 
 		for _, file := range current.Files {
 			rel, err := normalizeManifestPath(file.Name)
 			if err != nil {
-				return nil, fmt.Errorf("the currently installed manifest for depot %s has an %w", depotID, err)
+				return nil, fmt.Errorf("the current manifest file for depot %s has an %w", depotID, err)
 			}
 			if !file.IsDirectory() {
 				currentFiles[pathKey(rel)] = plannedFile{rel: rel, size: file.Size}
@@ -248,7 +248,7 @@ func planDowngrade(request DowngradeRequest) (*downgradePlan, error) {
 		for _, file := range target.Files {
 			rel, err := normalizeManifestPath(file.Name)
 			if err != nil {
-				return nil, fmt.Errorf("the older target manifest for depot %s has an %w", depotID, err)
+				return nil, fmt.Errorf("the previous version manifest for depot %s has an %w", depotID, err)
 			}
 			if !file.IsDirectory() {
 				targetSet[pathKey(rel)] = true
@@ -270,7 +270,7 @@ func planDowngrade(request DowngradeRequest) (*downgradePlan, error) {
 	plan.summary.OtherDepots = others
 	plan.summary.Partial = len(others) > 0
 	if plan.summary.Partial && !request.AcknowledgePartial {
-		return plan, fmt.Errorf("this game folder also holds depot %s. Add its installed and older manifests so every depot is downgraded together, or confirm a partial downgrade", strings.Join(others, ", "))
+		return plan, fmt.Errorf("this game folder also holds depot %s. Add its current and previous version manifest files so every depot is downgraded together, or confirm a partial downgrade", strings.Join(others, ", "))
 	}
 
 	if !plan.summary.Partial {

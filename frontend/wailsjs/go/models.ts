@@ -146,6 +146,20 @@ export namespace main {
 	        this.validate = source["validate"];
 	    }
 	}
+	export class ManifestIdentity {
+	    depotId: string;
+	    manifestId: string;
+	
+	    static createFrom(source: any = {}) {
+	        return new ManifestIdentity(source);
+	    }
+	
+	    constructor(source: any = {}) {
+	        if ('string' === typeof source) source = JSON.parse(source);
+	        this.depotId = source["depotId"];
+	        this.manifestId = source["manifestId"];
+	    }
+	}
 	export class ManifestInfo {
 	    path: string;
 	    name: string;

@@ -1,14 +1,14 @@
 import { SearchSteamGames } from '../wailsjs/go/main/App';
 import './game-selector.css';
 
-export function createGameSelector(root, appInput) {
+export function createGameSelector(root, appInput, prefix = 'game') {
   root.innerHTML = `<div class="game-mode" role="group" aria-label="Choose how to enter the game"><button type="button" data-mode="search" aria-pressed="true">Search by name</button><button type="button" data-mode="manual" aria-pressed="false">Enter app ID</button></div>
-    <div class="game-search"><label for="game-query" class="game-search__label sr-only">Game name</label><input id="game-query" type="text" role="combobox" aria-autocomplete="list" aria-expanded="false" aria-controls="game-results" aria-describedby="game-search-status" autocomplete="off" maxlength="200" placeholder="Start typing, for example Cricket 26"><div class="game-popup" hidden><div id="game-results" role="listbox" aria-label="Steam search results"></div></div><p id="game-search-status" role="status">Type a game name, then pick it from the list.</p></div>`;
-  const input = root.querySelector('#game-query');
+    <div class="game-search"><label for="${prefix}-query" class="game-search__label sr-only">Game name</label><input id="${prefix}-query" type="text" role="combobox" aria-autocomplete="list" aria-expanded="false" aria-controls="${prefix}-results" aria-describedby="${prefix}-search-status" autocomplete="off" maxlength="200" placeholder="Start typing, for example Cricket 26"><div class="game-popup" hidden><div id="${prefix}-results" role="listbox" aria-label="Steam search results"></div></div><p id="${prefix}-search-status" role="status">Type a game name, then pick it from the list.</p></div>`;
+  const input = root.querySelector(`#${prefix}-query`);
   const search = root.querySelector('.game-search');
   const popup = root.querySelector('.game-popup');
-  const list = root.querySelector('#game-results');
-  const status = root.querySelector('#game-search-status');
+  const list = root.querySelector(`#${prefix}-results`);
+  const status = root.querySelector(`#${prefix}-search-status`);
   const appField = appInput.closest('.app-id-field');
   const modes = [...root.querySelectorAll('[data-mode]')];
   let games = [], active = -1, version = 0, timer, disabled = false;
@@ -52,7 +52,7 @@ export function createGameSelector(root, appInput) {
       list.replaceChildren();
       games.forEach((game, index) => {
         const option = document.createElement('div');
-        option.id = `game-option-${index}`;
+        option.id = `${prefix}-option-${index}`;
         option.className = 'game-option';
         option.setAttribute('role', 'option');
         option.setAttribute('aria-selected', 'false');
@@ -122,6 +122,8 @@ export function createGameSelector(root, appInput) {
     status.textContent = 'Type a game name, then pick it from the list.';
   });
   return {
+    // Switch to typing the App ID, for an ID that came from somewhere else.
+    showManual() { modes.find((button) => button.dataset.mode === 'manual').click(); },
     setDisabled(value) {
       disabled = value;
       input.disabled = value;

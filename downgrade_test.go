@@ -344,3 +344,17 @@ func TestRealDownloaderAdvertisesDowngrade(t *testing.T) {
 		t.Fatalf("supported=%v err=%v", supported, err)
 	}
 }
+
+func TestReadManifestIdentityNeedsNoKey(t *testing.T) {
+	files := []testFile{{name: "a.bin", size: 1}}
+	fixture := newDowngradeFixture(t, files, files, true) // filenames encrypted
+	identity, err := readManifestIdentity(fixture.request.Depots[0].CurrentManifestPath)
+	if err != nil || identity.DepotID != 3468651 || identity.ManifestID != 200 {
+		t.Fatalf("identity = %+v, %v", identity, err)
+	}
+	garbage := filepath.Join(t.TempDir(), "x.manifest")
+	_ = os.WriteFile(garbage, []byte("nope"), 0o600)
+	if _, err := readManifestIdentity(garbage); err == nil {
+		t.Fatal("garbage was accepted")
+	}
+}

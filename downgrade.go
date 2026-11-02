@@ -8,6 +8,7 @@ import (
 	"os"
 	"os/exec"
 	"path/filepath"
+	"strconv"
 	"strings"
 	"sync"
 	"time"
@@ -29,6 +30,21 @@ func (a *App) PickManifestFile(title string) (string, error) {
 		Title:   title,
 		Filters: []runtime.FileFilter{{DisplayName: "Steam manifest (*.manifest)", Pattern: "*.manifest"}},
 	})
+}
+
+// ManifestIdentity is what a manifest says about itself, used to fill in the depot ID after a file is chosen.
+type ManifestIdentity struct {
+	DepotID    string `json:"depotId"`
+	ManifestID string `json:"manifestId"`
+}
+
+// InspectDowngradeManifest reads the depot and manifest IDs from inside a manifest file.
+func (a *App) InspectDowngradeManifest(path string) (ManifestIdentity, error) {
+	manifest, err := readManifestIdentity(filepath.Clean(strings.TrimSpace(path)))
+	if err != nil {
+		return ManifestIdentity{}, fmt.Errorf("that file %w", err)
+	}
+	return ManifestIdentity{DepotID: strconv.FormatUint(uint64(manifest.DepotID), 10), ManifestID: strconv.FormatUint(manifest.ManifestID, 10)}, nil
 }
 
 // PreflightDowngrade checks everything and reports what a downgrade would do, without touching the game folder.

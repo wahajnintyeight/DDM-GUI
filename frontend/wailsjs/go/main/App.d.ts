@@ -4,6 +4,8 @@ import {main} from '../models';
 
 export function CancelDownload():Promise<void>;
 
+export function InspectDowngradeManifest(arg1:string):Promise<main.ManifestIdentity>;
+
 export function PauseDownload():Promise<void>;
 
 export function PickManifestFile(arg1:string):Promise<string>;
