@@ -151,6 +151,7 @@ function showChosen(input, button, value, title = value) {
 
 function setRunning(running) {
   state.running = running;
+  el.workspace.dataset.running = String(running);
   gameSelector.setDisabled(running);
   if (!running) state.paused = false;
   el.pause.hidden = !running;

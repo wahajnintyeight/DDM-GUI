@@ -104,7 +104,7 @@ func downgradeAttempt(ctx context.Context, plan *downgradePlan, emit func(Downlo
 			scale := 1 / steps
 			message := "Downgrading files"
 			if pass == 1 {
-				message = "Checking every file against the older version"
+				message = "Checking every file"
 			}
 			last = downloadAttempt(ctx, plan.request.DownloaderPath, args, filepath.Dir(plan.request.DownloaderPath), func(update DownloadUpdate) {
 				update.Progress = offset + update.Progress*scale
