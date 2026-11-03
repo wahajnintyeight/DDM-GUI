@@ -3,7 +3,8 @@ import '@awesome.me/webawesome/dist/components/details/details.js';
 import './style.css';
 import { createGameSelector } from './game-selector';
 import { createDowngrade } from './downgrade';
-import { CancelDownload, PauseDownload, ResumeDownload, SelectDownloader, SelectGameFolder, SelectKeys, SelectManifest, StartDownload } from '../wailsjs/go/main/App';
+import { CancelDownload, NetworkReceivedBytes, PauseDownload, ResumeDownload, SelectDownloader, SelectGameFolder, SelectKeys, SelectManifest, StartDownload } from '../wailsjs/go/main/App';
+import { createJobStats } from './job-stats.js';
 import { EventsOn, Quit, WindowIsMaximised, WindowMinimise, WindowToggleMaximise } from '../wailsjs/runtime/runtime';
 
 const themeKey = 'depotdrop-theme';
@@ -97,6 +98,7 @@ document.querySelector('#app').innerHTML = `
       <p class="monitor__status" id="progress-status">Getting started</p>
       <output class="monitor__percent" id="progress-percent" aria-live="polite">0.00%</output>
       <div class="progress-track" role="progressbar" aria-label="Download progress" aria-valuemin="0" aria-valuemax="100" aria-valuenow="0"><span id="progress-fill"></span></div>
+      <section id="job-stats" aria-label="Live job statistics"></section>
       <p class="current-line" id="current-line">Waiting for the downloader to report in…</p>
       <div class="download-report" id="download-report" hidden aria-live="polite"><div class="report-stat"><span>Downloaded</span><strong id="report-downloaded">0 B</strong></div><div class="report-stat"><span>Uncompressed</span><strong id="report-uncompressed">0 B</strong></div><div class="report-stat"><span>Time taken</span><strong id="report-elapsed">0s</strong></div></div>
     </div>
@@ -195,6 +197,7 @@ const formatDuration = (value) => {
   const seconds = Math.floor(total % 60);
   return hours ? `${hours}h ${minutes}m ${seconds}s` : minutes ? `${minutes}m ${seconds}s` : `${total < 10 ? total.toFixed(1) : seconds}s`;
 };
+const jobTimer = createJobStats(document.getElementById('job-stats'), { readNetworkBytes: NetworkReceivedBytes, formatBytes });
 function updateReport(update, visible = false) {
   el.reportDownloaded.textContent = formatBytes(update.downloadedBytes);
   el.reportUncompressed.textContent = formatBytes(update.uncompressedBytes);
@@ -290,9 +293,9 @@ el.chooseFolder.addEventListener('click', async () => {
 
 el.start.addEventListener('click', async () => {
   el.monitor.dataset.phase = 'active';
-  setRunning(true); state.lines = []; el.log.textContent = ''; el.lineCount.textContent = '0 lines'; updateProgress(0); el.report.hidden = true;
+  setRunning(true); state.lines = []; el.log.textContent = ''; el.lineCount.textContent = '0 lines'; updateProgress(0); el.report.hidden = true; jobTimer.start();
   try { await StartDownload({ manifestPath: state.manifest.path, gameFolder: state.gameFolder, downloaderPath: state.downloaderPath, keysPath: state.keysPath, appId: state.appID, depotId: state.depotID, validate: el.validate.checked }); }
-  catch (error) { el.monitor.dataset.phase = 'idle'; setRunning(false); el.header.dataset.state = 'error'; el.headerLabel.textContent = 'Needs attention'; el.status.textContent = 'Download could not start'; el.message.textContent = errorText(error); el.start.dataset.state = 'error'; }
+  catch (error) { el.monitor.dataset.phase = 'idle'; jobTimer.stop(); setRunning(false); el.header.dataset.state = 'error'; el.headerLabel.textContent = 'Needs attention'; el.status.textContent = 'Download could not start'; el.message.textContent = errorText(error); el.start.dataset.state = 'error'; }
 });
 
 function setTheme(theme) {
@@ -344,7 +347,9 @@ try {
   EventsOn('download:update', (update) => {
     document.dispatchEvent(new CustomEvent('depotdrop:update', { detail: update }));
     updateProgress(update.progress); updateReport(update, update.state !== 'running'); el.status.textContent = update.message; appendLine(update.line);
+    if (update.state === 'running') jobTimer.report(update.progress);
     if (update.state === 'paused') {
+      jobTimer.pause();
       state.paused = true;
       el.pause.disabled = false;
       el.pause.textContent = 'Resume';
@@ -356,9 +361,10 @@ try {
       return;
     }
     if (update.state === 'running') {
-      if (state.paused) { state.paused = false; setRunning(true); el.report.hidden = true; }
+      if (state.paused) { state.paused = false; setRunning(true); el.report.hidden = true; jobTimer.resume(); }
       return;
     }
+    jobTimer.stop();
     setRunning(false);
     el.header.dataset.state = update.state;
     el.headerLabel.textContent = { complete: 'Complete', cancelled: 'Cancelled', error: 'Needs attention' }[update.state] || 'Ready';
@@ -370,9 +376,9 @@ try {
 
 function beginRun() {
   el.monitor.dataset.phase = 'active';
-  setRunning(true); state.lines = []; el.log.textContent = ''; el.lineCount.textContent = '0 lines'; updateProgress(0); el.report.hidden = true;
+  setRunning(true); state.lines = []; el.log.textContent = ''; el.lineCount.textContent = '0 lines'; updateProgress(0); el.report.hidden = true; jobTimer.start();
 }
-function abortRun() { el.monitor.dataset.phase = 'idle'; setRunning(false); }
+function abortRun() { el.monitor.dataset.phase = 'idle'; jobTimer.stop(); setRunning(false); }
 
 const downgrade = createDowngrade({ el, state, beginRun, abortRun, errorText, formatBytes });
 document.querySelectorAll('.mode-nav button').forEach((tab) => tab.addEventListener('click', () => {

@@ -10,6 +10,10 @@ export function InspectDowngradeManifest(arg1) {
   return window['go']['main']['App']['InspectDowngradeManifest'](arg1);
 }
 
+export function NetworkReceivedBytes() {
+  return window['go']['main']['App']['NetworkReceivedBytes']();
+}
+
 export function PauseDownload() {
   return window['go']['main']['App']['PauseDownload']();
 }
