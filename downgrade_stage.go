@@ -273,3 +273,16 @@ func trimOversizeFiles(plan *downgradePlan) {
 		}
 	}
 }
+
+// markTargetInstalled records the target version as installed, so the next run is a plain validation of it.
+func markTargetInstalled(plan *downgradePlan) error {
+	config := filepath.Join(plan.root, ".DepotDownloader", "depot.config")
+	installed, err := readDepotConfig(config)
+	if err != nil {
+		installed = map[uint32]uint64{}
+	}
+	for _, item := range plan.depots {
+		installed[item.target.DepotID] = item.target.ManifestID
+	}
+	return writeDepotConfig(config, installed)
+}

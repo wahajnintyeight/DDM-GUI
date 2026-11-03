@@ -402,21 +402,3 @@ func writeDepotConfig(config string, installed map[uint32]uint64) error {
 	}
 	return file.Close()
 }
-
-// downgradeArguments builds one downloader invocation per depot. Only Downgrade uses -sourcemanifestfile.
-func downgradeArguments(plan *downgradePlan) [][]string {
-	var commands [][]string
-	for _, item := range plan.depots {
-		commands = append(commands, []string{
-			"-app", plan.request.AppID,
-			"-depot", item.depot.DepotID,
-			"-manifest", strconv.FormatUint(item.target.ManifestID, 10),
-			"-manifestfile", item.depot.TargetManifestPath,
-			"-sourcemanifestfile", item.depot.CurrentManifestPath,
-			"-depotkeys", plan.request.KeysPath,
-			"-dir", plan.root,
-			"-validate",
-		})
-	}
-	return commands
-}

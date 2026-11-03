@@ -8,7 +8,6 @@ import (
 	"encoding/hex"
 	"os"
 	"path/filepath"
-	"strconv"
 	"strings"
 	"testing"
 )
@@ -184,7 +183,7 @@ func TestPlanRemovesOnlyCurrentOnlyFilesPresentOnDisk(t *testing.T) {
 	if plan.summary.HadStateFolder {
 		t.Fatal("reported a .DepotDownloader folder that does not exist")
 	}
-	if len(downgradeArguments(plan)) != 1 {
+	if len(compatArguments(plan)) != 1 {
 		t.Fatal("expected one downloader invocation")
 	}
 }
@@ -299,47 +298,12 @@ func TestFinishDowngradeVerifiesThenRemoves(t *testing.T) {
 	}
 }
 
-func TestDowngradeArgumentsAreOptInAndNormalDownloadIsUnchanged(t *testing.T) {
-	files := []testFile{{name: "a.bin", size: 1}}
-	fixture := newDowngradeFixture(t, files, files, false)
-	plan, err := planDowngrade(fixture.request)
-	if err != nil {
-		t.Fatal(err)
-	}
-	args := strings.Join(downgradeArguments(plan)[0], " ")
-	for _, want := range []string{"-sourcemanifestfile " + fixture.request.Depots[0].CurrentManifestPath, "-manifestfile " + fixture.request.Depots[0].TargetManifestPath, "-manifest " + strconv.Itoa(100), "-validate"} {
-		if !strings.Contains(args, want) {
-			t.Fatalf("args %q lack %q", args, want)
-		}
-	}
-	info := ManifestInfo{Path: fixture.request.Depots[0].TargetManifestPath, DepotID: "3468651", ManifestID: "100"}
-	_, normal, err := downloadCommand(info, fixture.root, fixture.downloader, fixture.keys, "3468650", "", true)
-	if err != nil {
-		t.Fatal(err)
-	}
-	if strings.Contains(strings.Join(normal, " "), downgradeFlag) {
-		t.Fatal("the normal download command picked up the downgrade option")
-	}
-}
-
 func TestKeysNeverLeakIntoErrors(t *testing.T) {
 	path := filepath.Join(t.TempDir(), "keys.txt")
 	_ = os.WriteFile(path, []byte("\xef\xbb\xbf5;SECRETSECRET\n"), 0o600)
 	_, err := depotKeyFor(path, "5")
 	if err == nil || strings.Contains(err.Error(), "SECRET") {
 		t.Fatalf("error = %v", err)
-	}
-}
-
-// Opt-in check against a real downloader build: DEPOTDROP_REAL_DOWNLOADER=path\to\DepotDownloaderMod.exe
-func TestRealDownloaderAdvertisesDowngrade(t *testing.T) {
-	path := os.Getenv("DEPOTDROP_REAL_DOWNLOADER")
-	if path == "" {
-		t.Skip("set DEPOTDROP_REAL_DOWNLOADER to test a real downloader build")
-	}
-	supported, err := downloaderSupportsDowngrade(path)
-	if err != nil || !supported {
-		t.Fatalf("supported=%v err=%v", supported, err)
 	}
 }
 
@@ -399,8 +363,14 @@ func TestStageDowngradeForStockDownloader(t *testing.T) {
 		if len(full.Files) != 1 || full.Files[0].Name != "keep.bin" || full.Files[0].Size != 4 {
 			t.Fatalf("target copy = %+v", full)
 		}
+		if err := markTargetInstalled(plan); err != nil {
+			t.Fatal(err)
+		}
+		if installed, _ = readDepotConfig(filepath.Join(other, "depot.config")); installed[3468651] != 100 || installed[3468652] != 55 {
+			t.Fatalf("final-check config = %v", installed)
+		}
 		args := strings.Join(compatArguments(plan)[0], " ")
-		if strings.Contains(args, "-manifestfile") || strings.Contains(args, downgradeFlag) || !strings.Contains(args, "-validate") {
+		if strings.Contains(args, "-manifestfile") || strings.Contains(args, "-sourcemanifestfile") || !strings.Contains(args, "-validate") {
 			t.Fatalf("args = %s", args)
 		}
 	}

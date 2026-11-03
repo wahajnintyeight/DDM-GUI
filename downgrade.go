@@ -1,26 +1,15 @@
 package main
 
 import (
-	"bytes"
 	"context"
 	"errors"
 	"fmt"
 	"os"
-	"os/exec"
 	"path/filepath"
 	"strconv"
 	"strings"
-	"sync"
-	"time"
 
 	"github.com/wailsapp/wails/v2/pkg/runtime"
-)
-
-const downgradeFlag = "-sourcemanifestfile"
-
-var (
-	downloaderSupportMu    sync.Mutex
-	downloaderSupportCache = map[string]bool{}
 )
 
 // PickManifestFile lets the user choose any manifest. Downgrade reads the IDs from inside the file,
@@ -86,75 +75,57 @@ func (a *App) StartDowngrade(request DowngradeRequest) error {
 	return nil
 }
 
-func downloaderSupportsDowngrade(path string) (bool, error) {
-	stat, err := os.Stat(path)
-	if err != nil {
-		return false, fmt.Errorf("DepotDownloaderMod.exe could not be opened: %w", err)
-	}
-	key := fmt.Sprintf("%s|%d|%d", path, stat.Size(), stat.ModTime().UnixNano())
-	downloaderSupportMu.Lock()
-	cached, ok := downloaderSupportCache[key]
-	downloaderSupportMu.Unlock()
-	if ok {
-		return cached, nil
-	}
-
-	// With no arguments the downloader prints its usage and exits; that text lists the option when it exists.
-	ctx, cancel := context.WithTimeout(context.Background(), 15*time.Second)
-	defer cancel()
-	command := exec.CommandContext(ctx, path)
-	command.Dir = filepath.Dir(path)
-	var output bytes.Buffer
-	command.Stdout, command.Stderr = &output, &output
-	_ = command.Run()
-	supported := strings.Contains(output.String(), downgradeFlag)
-
-	downloaderSupportMu.Lock()
-	downloaderSupportCache[key] = supported
-	downloaderSupportMu.Unlock()
-	return supported, nil
-}
-
-// downgradeAttempt runs the downloader once per depot. A resumed attempt starts again from the first depot;
-// files that already match the target are recognised and skipped, so nothing is downloaded twice.
+// downgradeAttempt runs the downloader in two passes per attempt.
+//
+// Pass 1 moves the folder from the current version to the target: the downloader reuses every chunk that both
+// versions share and fetches the rest. Pass 2 then marks the target as installed and runs a plain validated
+// download of the target, exactly like the Download tab. It trusts nothing from pass 1: every file is checked
+// against the target manifest and any leftover difference is repaired, so the game never needs a manual
+// re-validate. A resumed attempt starts again from pass 1; matching files are skipped quickly.
 func downgradeAttempt(ctx context.Context, plan *downgradePlan, emit func(DownloadUpdate)) DownloadUpdate {
-	// A downloader that knows -sourcemanifestfile compares the two manifests directly; any other build is
-	// driven through prepared .DepotDownloader state.
-	var commands [][]string
-	if patched, _ := downloaderSupportsDowngrade(plan.request.DownloaderPath); patched {
-		commands = downgradeArguments(plan)
-	} else {
-		if err := stageDowngrade(plan); err != nil {
-			return DownloadUpdate{State: "error", Message: "Could not prepare the downgrade: " + err.Error()}
-		}
-		commands = compatArguments(plan)
+	if err := stageDowngrade(plan); err != nil {
+		return DownloadUpdate{State: "error", Message: "Could not prepare the downgrade: " + err.Error()}
 	}
-	total := float64(len(commands))
+	commands := compatArguments(plan)
+	passes := 2
+	steps := float64(len(commands) * passes)
 	var elapsed float64
 	var downloaded, uncompressed int64
 	last := DownloadUpdate{State: "complete", Progress: 100, Message: "Downgrade downloaded"}
-	for index, args := range commands {
-		offset := float64(index) * 100 / total
-		scale := 1 / total
-		last = downloadAttempt(ctx, plan.request.DownloaderPath, args, filepath.Dir(plan.request.DownloaderPath), func(update DownloadUpdate) {
-			update.Progress = offset + update.Progress*scale
-			if update.State == "running" {
-				update.Message = "Downgrading files"
+	step := 0
+	for pass := 0; pass < passes; pass++ {
+		if pass == 1 {
+			if err := markTargetInstalled(plan); err != nil {
+				return DownloadUpdate{State: "error", Message: "Could not prepare the final check: " + err.Error()}
 			}
-			emit(update)
-		})
-		elapsed += last.ElapsedSeconds
-		downloaded += last.DownloadedBytes
-		uncompressed += last.UncompressedBytes
-		if last.State != "complete" {
-			last.Progress = offset + last.Progress*scale
-			break
+		}
+		for _, args := range commands {
+			offset := float64(step) * 100 / steps
+			scale := 1 / steps
+			message := "Downgrading files"
+			if pass == 1 {
+				message = "Checking every file against the older version"
+			}
+			last = downloadAttempt(ctx, plan.request.DownloaderPath, args, filepath.Dir(plan.request.DownloaderPath), func(update DownloadUpdate) {
+				update.Progress = offset + update.Progress*scale
+				if update.State == "running" {
+					update.Message = message
+				}
+				emit(update)
+			})
+			elapsed += last.ElapsedSeconds
+			downloaded += last.DownloadedBytes
+			uncompressed += last.UncompressedBytes
+			if last.State != "complete" {
+				last.Progress = offset + last.Progress*scale
+				last.ElapsedSeconds, last.DownloadedBytes, last.UncompressedBytes = elapsed, downloaded, uncompressed
+				return last
+			}
+			step++
 		}
 	}
 	last.ElapsedSeconds, last.DownloadedBytes, last.UncompressedBytes = elapsed, downloaded, uncompressed
-	if last.State == "complete" {
-		last.Progress = 100
-	}
+	last.Progress = 100
 	return last
 }
 
