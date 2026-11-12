@@ -121,7 +121,7 @@ wails dev
 
 ## Publishing updates
 
-The **Update** button checks the latest stable GitHub release. Before publishing a new version, update `info.productVersion` in `wails.json` to match the release tag (without `v`) and build the Windows 64-bit executable. Attach both `DDM-GUI.exe` and a `SHA256SUMS` file to the release:
+DepotDrop checks the latest stable GitHub release on startup and periodically while open. An update icon appears when a newer version is available. Before publishing a new version, update `info.productVersion` in `wails.json` to match the release tag (without `v`) and build the Windows 64-bit executable. Attach both `DDM-GUI.exe` and a `SHA256SUMS` file to the release:
 
 ```powershell
 $hash = (Get-FileHash build/bin/DDM-GUI.exe -Algorithm SHA256).Hash.ToLowerInvariant()

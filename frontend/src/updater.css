@@ -1,6 +1,16 @@
-.update-dialog{width:min(26rem,calc(100% - 2rem));border:1px solid var(--color-border, #d4dae4);border-radius:var(--radius-sm, .5rem);padding:1.5rem;background:var(--color-paper);color:var(--color-ink);box-shadow:0 1rem 3rem #0003}
+.update-indicator{--wails-draggable:no-drag;position:relative;flex:none}
+.update-toggle{--wails-draggable:no-drag;position:relative;display:grid;place-items:center;width:2.25rem;height:2.25rem;padding:0;border:1px solid var(--color-rule);border-radius:var(--radius-xs);background:var(--color-paper-2);color:var(--color-accent);cursor:pointer;outline:var(--rule-focus) solid transparent;outline-offset:2px}
+.update-toggle:hover{background:var(--color-paper-3)}
+.update-toggle:focus-visible{outline-color:var(--color-focus)}
+.update-toggle svg{width:1.125rem;height:1.125rem}
+.update-toggle__dot{position:absolute;top:-.2rem;right:-.2rem;width:.55rem;height:.55rem;border:2px solid var(--color-paper);border-radius:50%;background:var(--color-accent)}
+.update-hint{position:absolute;z-index:10;top:calc(100% + .7rem);right:-.35rem;width:max-content;max-width:14rem;padding:.45rem .7rem;border:1px solid var(--color-rule);border-radius:var(--radius-xs);background:var(--color-ink);color:var(--color-paper);box-shadow:0 4px 14px #0002;font-size:var(--text-sm);font-weight:600;pointer-events:none;opacity:0;transform:translateY(-.25rem);transition:opacity var(--dur-short) var(--ease-out),transform var(--dur-short) var(--ease-out)}
+.update-indicator[data-notify=true] .update-hint,.update-indicator:focus-within .update-hint,.update-indicator:hover .update-hint{opacity:1;transform:translateY(0)}
+.update-dialog{width:min(27rem,calc(100% - 2rem));border:1px solid var(--color-rule);border-radius:var(--radius-sm);padding:1.75rem;background:var(--color-paper);color:var(--color-ink);box-shadow:0 1rem 3rem #0003}
 .update-dialog::backdrop{background:#0008}
-.update-dialog h2{margin:0;font-size:1.25rem}
-.update-dialog p{min-height:3em;color:var(--color-ink-2);overflow-wrap:anywhere}
+.update-dialog__icon{display:grid;place-items:center;width:2.75rem;height:2.75rem;margin-bottom:1.25rem;border:1px solid var(--color-rule);border-radius:var(--radius-sm);background:var(--color-paper-2);color:var(--color-accent)}
+.update-dialog__icon svg{width:1.35rem;height:1.35rem}
+.update-dialog h2{margin:0;font-family:var(--font-display);font-size:var(--text-md);letter-spacing:-.02em;line-height:1.2}
+.update-dialog p{min-height:3em;margin:.75rem 0 1.5rem;color:var(--color-ink-2);overflow-wrap:anywhere}
 .update-actions{display:flex;justify-content:flex-end;gap:.5rem}
-.update-toggle{white-space:nowrap}
+@media (prefers-reduced-motion:reduce){.update-hint{transition:none}}

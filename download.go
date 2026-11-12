@@ -210,6 +210,9 @@ func (a *App) runSupervised(ctx, attemptCtx context.Context, attempt func(contex
 			a.running, a.paused, a.cancel = false, false, nil
 			emit(update)
 			a.mu.Unlock()
+			if message := completionNotification(update); message != "" {
+				go showCompletionNotification(message)
+			}
 			return
 		}
 		a.paused = true
