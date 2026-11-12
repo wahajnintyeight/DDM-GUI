@@ -100,15 +100,15 @@ After downgrading, turn off Steam auto-update for the game, or Steam may update 
 
 Requirements:
 
-- Go 1.24 (Go 1.27 breaks Wails binding generation)
+- Go 1.26 or newer (required by the Wails v3 updater)
 - Node.js 20+
-- Wails CLI 2.11+
+- Wails CLI 2.17.1 or newer
 - WebView2 Runtime on Windows
 
 ```powershell
 npm install --prefix frontend
 go test ./...
-wails build -clean
+wails build
 ```
 
 The production executable is written to `build/bin/DDM-GUI.exe`.
@@ -118,6 +118,17 @@ For live development:
 ```powershell
 wails dev
 ```
+
+## Publishing updates
+
+The **Update** button checks the latest stable GitHub release. Before publishing a new version, update `info.productVersion` in `wails.json` to match the release tag (without `v`) and build the Windows 64-bit executable. Attach both `DDM-GUI.exe` and a `SHA256SUMS` file to the release:
+
+```powershell
+$hash = (Get-FileHash build/bin/DDM-GUI.exe -Algorithm SHA256).Hash.ToLowerInvariant()
+Set-Content -Encoding ascii SHA256SUMS "$hash  DDM-GUI.exe"
+```
+
+The updater refuses releases without a matching checksum. A checksum protects against corruption but does not protect against a compromised GitHub release; releases are not signed. Existing versions need a one-time manual upgrade to a version containing the updater. The executable's directory must be writable for an update to install.
 
 ## Project layout
 

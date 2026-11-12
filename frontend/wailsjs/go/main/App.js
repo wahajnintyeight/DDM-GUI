@@ -6,6 +6,14 @@ export function CancelDownload() {
   return window['go']['main']['App']['CancelDownload']();
 }
 
+export function CheckForUpdate() {
+  return window['go']['main']['App']['CheckForUpdate']();
+}
+
+export function DownloadUpdate() {
+  return window['go']['main']['App']['DownloadUpdate']();
+}
+
 export function InspectDowngradeManifest(arg1) {
   return window['go']['main']['App']['InspectDowngradeManifest'](arg1);
 }
@@ -24,6 +32,10 @@ export function PickManifestFile(arg1) {
 
 export function PreflightDowngrade(arg1) {
   return window['go']['main']['App']['PreflightDowngrade'](arg1);
+}
+
+export function RestartForUpdate() {
+  return window['go']['main']['App']['RestartForUpdate']();
 }
 
 export function ResumeDownload() {

@@ -1,14 +1,14 @@
 export namespace main {
-	
+
 	export class DowngradeDepot {
 	    depotId: string;
 	    currentManifestPath: string;
 	    targetManifestPath: string;
-	
+
 	    static createFrom(source: any = {}) {
 	        return new DowngradeDepot(source);
 	    }
-	
+
 	    constructor(source: any = {}) {
 	        if ('string' === typeof source) source = JSON.parse(source);
 	        this.depotId = source["depotId"];
@@ -22,11 +22,11 @@ export namespace main {
 	    targetManifestId: string;
 	    currentFiles: number;
 	    targetFiles: number;
-	
+
 	    static createFrom(source: any = {}) {
 	        return new DowngradeDepotSummary(source);
 	    }
-	
+
 	    constructor(source: any = {}) {
 	        if ('string' === typeof source) source = JSON.parse(source);
 	        this.depotId = source["depotId"];
@@ -43,11 +43,11 @@ export namespace main {
 	    keysPath: string;
 	    depots: DowngradeDepot[];
 	    acknowledgePartial: boolean;
-	
+
 	    static createFrom(source: any = {}) {
 	        return new DowngradeRequest(source);
 	    }
-	
+
 	    constructor(source: any = {}) {
 	        if ('string' === typeof source) source = JSON.parse(source);
 	        this.appId = source["appId"];
@@ -57,7 +57,7 @@ export namespace main {
 	        this.depots = this.convertValues(source["depots"], DowngradeDepot);
 	        this.acknowledgePartial = source["acknowledgePartial"];
 	    }
-	
+
 		convertValues(a: any, classs: any, asMap: boolean = false): any {
 		    if (!a) {
 		        return a;
@@ -86,11 +86,11 @@ export namespace main {
 	    otherDepots: string[];
 	    partial: boolean;
 	    notes: string[];
-	
+
 	    static createFrom(source: any = {}) {
 	        return new DowngradeSummary(source);
 	    }
-	
+
 	    constructor(source: any = {}) {
 	        if ('string' === typeof source) source = JSON.parse(source);
 	        this.appId = source["appId"];
@@ -103,7 +103,7 @@ export namespace main {
 	        this.partial = source["partial"];
 	        this.notes = source["notes"];
 	    }
-	
+
 		convertValues(a: any, classs: any, asMap: boolean = false): any {
 		    if (!a) {
 		        return a;
@@ -130,11 +130,11 @@ export namespace main {
 	    appId: string;
 	    depotId: string;
 	    validate: boolean;
-	
+
 	    static createFrom(source: any = {}) {
 	        return new DownloadRequest(source);
 	    }
-	
+
 	    constructor(source: any = {}) {
 	        if ('string' === typeof source) source = JSON.parse(source);
 	        this.manifestPath = source["manifestPath"];
@@ -149,11 +149,11 @@ export namespace main {
 	export class ManifestIdentity {
 	    depotId: string;
 	    manifestId: string;
-	
+
 	    static createFrom(source: any = {}) {
 	        return new ManifestIdentity(source);
 	    }
-	
+
 	    constructor(source: any = {}) {
 	        if ('string' === typeof source) source = JSON.parse(source);
 	        this.depotId = source["depotId"];
@@ -165,11 +165,11 @@ export namespace main {
 	    name: string;
 	    depotId: string;
 	    manifestId: string;
-	
+
 	    static createFrom(source: any = {}) {
 	        return new ManifestInfo(source);
 	    }
-	
+
 	    constructor(source: any = {}) {
 	        if ('string' === typeof source) source = JSON.parse(source);
 	        this.path = source["path"];
@@ -181,15 +181,29 @@ export namespace main {
 	export class SteamGame {
 	    id: number;
 	    name: string;
-	
+
 	    static createFrom(source: any = {}) {
 	        return new SteamGame(source);
 	    }
-	
+
 	    constructor(source: any = {}) {
 	        if ('string' === typeof source) source = JSON.parse(source);
 	        this.id = source["id"];
 	        this.name = source["name"];
+	    }
+	}
+	export class UpdateInfo {
+	    current: string;
+	    available: string;
+
+	    static createFrom(source: any = {}) {
+	        return new UpdateInfo(source);
+	    }
+
+	    constructor(source: any = {}) {
+	        if ('string' === typeof source) source = JSON.parse(source);
+	        this.current = source["current"];
+	        this.available = source["available"];
 	    }
 	}
 

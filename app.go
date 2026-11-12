@@ -4,11 +4,15 @@ import (
 	"context"
 	"sync"
 
+	"github.com/wailsapp/wails/v3/pkg/updater"
+
 	"github.com/wailsapp/wails/v2/pkg/runtime"
 )
 
 type App struct {
 	ctx         context.Context
+	updateMu    sync.Mutex
+	updater     *updater.Updater
 	mu          sync.Mutex
 	cancel      context.CancelFunc
 	running     bool

@@ -1,0 +1,6 @@
+.update-dialog{width:min(26rem,calc(100% - 2rem));border:1px solid var(--color-border, #d4dae4);border-radius:var(--radius-sm, .5rem);padding:1.5rem;background:var(--color-paper);color:var(--color-ink);box-shadow:0 1rem 3rem #0003}
+.update-dialog::backdrop{background:#0008}
+.update-dialog h2{margin:0;font-size:1.25rem}
+.update-dialog p{min-height:3em;color:var(--color-ink-2);overflow-wrap:anywhere}
+.update-actions{display:flex;justify-content:flex-end;gap:.5rem}
+.update-toggle{white-space:nowrap}

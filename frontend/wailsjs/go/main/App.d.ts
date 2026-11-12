@@ -4,6 +4,10 @@ import {main} from '../models';
 
 export function CancelDownload():Promise<void>;
 
+export function CheckForUpdate():Promise<main.UpdateInfo>;
+
+export function DownloadUpdate():Promise<void>;
+
 export function InspectDowngradeManifest(arg1:string):Promise<main.ManifestIdentity>;
 
 export function NetworkReceivedBytes():Promise<number>;
@@ -13,6 +17,8 @@ export function PauseDownload():Promise<void>;
 export function PickManifestFile(arg1:string):Promise<string>;
 
 export function PreflightDowngrade(arg1:main.DowngradeRequest):Promise<main.DowngradeSummary>;
+
+export function RestartForUpdate():Promise<void>;
 
 export function ResumeDownload():Promise<void>;
 
