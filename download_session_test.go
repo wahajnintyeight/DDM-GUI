@@ -2,11 +2,75 @@ package main
 
 import (
 	"context"
+	"flag"
 	"fmt"
 	"os"
+	"os/exec"
+	"runtime"
 	"testing"
 	"time"
 )
+
+var _ = flag.Bool("validate", false, "accept resumed downloader validation")
+
+func TestResumeDownloadArgsEnablesValidation(t *testing.T) {
+	original := []string{"-app", "123"}
+	resumed := resumeDownloadArgs(original)
+	if len(resumed) != 3 || resumed[2] != "-validate" || len(original) != 2 {
+		t.Fatalf("unexpected resume arguments: %v (original %v)", resumed, original)
+	}
+	if len(resumeDownloadArgs(resumed)) != len(resumed) {
+		t.Fatal("validation was added twice")
+	}
+}
+
+func TestDownloaderInheritedPipeHelper(t *testing.T) {
+	switch os.Getenv("DEPOTDROP_PIPE_HELPER") {
+	case "parent":
+		child := exec.Command("powershell.exe", "-NoProfile", "-NonInteractive", "-Command", "Start-Sleep -Seconds 4")
+		child.Stdout, child.Stderr = os.Stdout, os.Stderr
+		if err := child.Start(); err != nil {
+			os.Exit(2)
+		}
+		fmt.Println("25.00% partial-file")
+		time.Sleep(time.Minute)
+		os.Exit(0)
+	}
+}
+
+func TestCancelWithInheritedOutputPipe(t *testing.T) {
+	if runtime.GOOS != "windows" {
+		t.Skip("requires PowerShell")
+	}
+	t.Setenv("DEPOTDROP_PIPE_HELPER", "parent")
+	ctx, cancel := context.WithCancel(context.Background())
+	defer cancel()
+	updates := make(chan DownloadUpdate, 8)
+	done := make(chan DownloadUpdate, 1)
+	go func() {
+		done <- downloadAttempt(ctx, os.Args[0], []string{"-test.run=^TestDownloaderInheritedPipeHelper$"}, "", func(update DownloadUpdate) { updates <- update })
+	}()
+	for {
+		select {
+		case update := <-updates:
+			if update.Progress == 25 {
+				cancel()
+				goto waiting
+			}
+		case <-time.After(10 * time.Second):
+			t.Fatal("downloader did not start")
+		}
+	}
+waiting:
+	select {
+	case update := <-done:
+		if update.State != "cancelled" {
+			t.Fatalf("got %s", update.State)
+		}
+	case <-time.After(time.Second):
+		t.Fatal("cancel waited for a descendant holding the output pipe")
+	}
+}
 
 // Reuse the test binary as a downloader so the check exercises real process exit.
 func TestDownloaderProcess(t *testing.T) {

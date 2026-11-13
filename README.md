@@ -12,7 +12,7 @@ DepotDrop wraps the local `DepotDownloaderMod.exe` workflow with guided setup: c
 [![Vite](https://img.shields.io/badge/Vite-646CFF?style=for-the-badge&logo=vite&logoColor=white)](https://vite.dev/)
 [![Web Awesome](https://img.shields.io/badge/Web%20Awesome-4774E7?style=for-the-badge)](https://webawesome.com/)
 [![Steam Store](https://img.shields.io/badge/Steam%20Store%20Search-000000?style=for-the-badge&logo=steam&logoColor=white)](https://store.steampowered.com/)
-[![DepotDownloaderMod](https://img.shields.io/badge/DepotDownloaderMod-181717?style=for-the-badge&logo=github&logoColor=white)](https://github.com/SteamAutoCracks/DepotDownloaderMod)
+[![DepotDownloaderMod](https://img.shields.io/badge/DepotDownloaderMod-181717?style=for-the-badge&logo=github&logoColor=white)](https://github.com/wahajnintyeight/DepotDownloaderMod)
 [![Playwright](https://img.shields.io/badge/Playwright-2EAD33?style=for-the-badge&logo=playwright&logoColor=white)](https://playwright.dev/)
 
 **Download** a depot from a manifest:
@@ -26,6 +26,8 @@ DepotDrop wraps the local `DepotDownloaderMod.exe` workflow with guided setup: c
 ## Download for Windows
 
 Download the latest ready-to-run `.exe` from the [GitHub Releases page](https://github.com/wahajnintyeight/DDM-GUI/releases/latest). The packaged app requires the Windows WebView2 Runtime, which is already present on most current Windows installations.
+
+For process-specific speed and validation readings, choose the [DDM-GUI DepotDownloaderMod 3.4.0.3 build](https://github.com/wahajnintyeight/DepotDownloaderMod/releases/download/DepotDownloaderMod_3.4.0.3/DepotDownloaderMod.exe) as the downloader executable. Older builds still work, but do not provide these live statistics or the HDD-aware validation worker setting. The downloader remains a separate user-selected program; it is not bundled with DepotDrop.
 
 ## Features
 
@@ -46,7 +48,9 @@ Download the latest ready-to-run `.exe` from the [GitHub Releases page](https://
 
 **Live job panel (both tabs)**
 - Download speed with a one-minute graph, elapsed time and a smoothed estimated time left.
-- Speed is read from the computer's network adapters, so it also reflects other programs using the connection and sits near zero while files are only being checked on disk.
+- Download speed is reported by the selected downloader and only includes completed compressed chunks from this job; it excludes other applications, active chunks, retries and protocol overhead, so it can be bursty or show zero while a chunk is in progress.
+- Validation read is the rate of bytes passed through checksum reads. Windows may serve those reads from cache, so this is not guaranteed physical disk throughput.
+- DepotDownloaderMod 3.4.0.3 uses buffered checksums and indexed manifest lookups. It automatically uses one validator on Windows drives reporting a rotational seek penalty (typically HDDs); SSD/NVMe and unknown drives use the downloader's `-max-downloads` setting.
 - Elapsed time excludes time spent paused; a detailed output log is available.
 
 ## Quick start
@@ -83,7 +87,7 @@ Then:
 8. Leave **Validate** checked to verify all existing files, or uncheck it to use the downloader's normal checks.
 9. Select **Start download**.
 
-**Pause** stops the downloader and keeps the downloaded files. **Resume** restarts the same command with the selected validation setting. With **Validate** enabled, all existing files are checked; when disabled, the downloader can still check files needed for recovery or updates. Validation can take time and interrupted or unwritten chunks may download again. Keep the destination folder and its `.DepotDownloader` metadata. Paused setup stays locked until you resume or cancel; after closing the app, select the same inputs and destination and start again to recover existing chunks. Elapsed time excludes time spent paused; downloaded byte totals come from the latest downloader run.
+**Pause** stops the downloader and keeps the downloaded files. **Resume** restarts the command and validates existing files so partially written or changed chunks can be recovered, even if **Validate** was unchecked for the first attempt. Validation can take time and interrupted or unwritten chunks may download again. Keep the destination folder and its `.DepotDownloader` metadata. Paused setup stays locked until you resume or cancel; after closing the app, select the same inputs and destination and start again to recover existing chunks. Elapsed time excludes time spent paused; downloaded byte totals come from the latest downloader run.
 
 The app does not read or transmit the contents of the manifest, depot keys, or downloader executable. It passes their selected local paths directly to the downloader.
 
@@ -138,7 +142,7 @@ The updater refuses releases without a matching checksum. A checksum protects ag
 | `download.go` | Manifest parsing, command construction, process execution, and progress parsing |
 | `download_test.go` | Parser and command-contract checks |
 | `downgrade*.go`, `manifest.go`, `keys.go` | Downgrade planning, manifest parsing, staging and verification |
-| `network*.go` | Network adapter counters used for the speed readout |
+| `telemetry.go` | Per-job downloader metrics parsing |
 | `frontend/src/main.js` | Guided setup and live download state |
 | `frontend/src/downgrade.js` | Downgrade tab |
 | `frontend/src/job-stats.js`, `eta.js` | Live speed, elapsed time and time-left panel |

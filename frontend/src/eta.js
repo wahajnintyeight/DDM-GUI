@@ -25,8 +25,8 @@ function formatLeft(seconds) {
   if (seconds < 10) return 'a few seconds';
   if (seconds < 90) return `~${Math.round(seconds / 5) * 5}s`;
   if (seconds < 3600) return `~${Math.ceil(seconds / 60)} min`;
-  const h = Math.floor(seconds / 3600);
-  return `~${h}h ${Math.round((seconds % 3600) / 60)}m`;
+  const minutes = Math.ceil(seconds / 60);
+  return `~${Math.floor(minutes / 60)}h ${minutes % 60}m`;
 }
 
 export function createJobTimer(onRender) {
@@ -89,6 +89,7 @@ export function createJobTimer(onRender) {
     if (!active || timerId) return;
     sampleTime = lastTick = lastMoveTime = now();
     sampleProgress = progress;
+    rate = 0;
     timerId = window.setInterval(tick, 1000);
     render();
   }
@@ -98,10 +99,15 @@ export function createJobTimer(onRender) {
     if (!active || !timerId) return;
     const value = Math.min(100, Math.max(0, Number(percent) || 0));
     const t = now();
+    if (value < progress) {
+      sampleTime = t;
+      sampleProgress = value;
+      rate = 0;
+    }
     if (value > progress) lastMoveTime = t;
     progress = value;
     const dt = (t - sampleTime) / 1000;
-    if (dt * 1000 >= SAMPLE_MS) {
+    if (progress > sampleProgress && dt * 1000 >= SAMPLE_MS) {
       const instant = (progress - sampleProgress) / dt;
       if (instant > 0) {
         const weight = 1 - Math.exp(-dt / SMOOTHING_SECONDS);

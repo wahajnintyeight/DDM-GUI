@@ -1,50 +1,39 @@
-// The live numbers shown while a job runs: download speed (with a small history graph), time elapsed and time left.
-//
-// Speed comes from the computer's network adapters, polled once a second and smoothed over a few seconds.
-// It therefore also reflects other programs using the network, and reads near zero while files are only
-// being checked on disk, which is useful to see in itself.
-
 import { createJobTimer } from './eta.js';
 
-const HISTORY = 60; // seconds of speed history in the graph
-const SPEED_SMOOTHING_SECONDS = 4;
-
+const HISTORY = 60;
 const tile = (label, id, hint = '') => `
   <div class="job-stat" ${hint ? `title="${hint}"` : ''}>
     <span class="job-stat__label">${label}</span>
     <strong class="job-stat__value" id="${id}">—</strong>
   </div>`;
 
-export function createJobStats(root, { readNetworkBytes, formatBytes }) {
+export function createJobStats(root, { formatBytes }) {
   root.className = 'job-stats';
   root.hidden = true;
   root.innerHTML = `
     <div class="job-stats__grid">
-      ${tile('Speed', 'job-speed', 'Network speed of this computer. It also counts other programs using the connection.')}
+      ${tile('Download speed', 'job-speed', 'Compressed bytes from completed chunks per second. Transfers in progress and retries are not counted yet.')}
+      ${tile('Validation read', 'job-read', 'Bytes read by the validator per second, including reads served from cache.')}
       ${tile('Elapsed', 'job-elapsed')}
-      ${tile('Time left', 'job-left', 'An estimate that gets steadier as the job goes on.')}
+      ${tile('Time left', 'job-left', 'Rough estimate based on completed-file progress. Validation and downloads can run at different rates.')}
     </div>
-    <svg class="job-stats__graph" viewBox="0 0 ${HISTORY} 24" preserveAspectRatio="none" role="img" aria-label="Download speed over the last minute">
+    <svg class="job-stats__graph" viewBox="0 0 ${HISTORY} 24" preserveAspectRatio="none" role="img" aria-label="Completed chunk download speed over the last minute">
       <polyline class="job-stats__area" points=""></polyline>
       <polyline class="job-stats__line" points=""></polyline>
     </svg>
     <p class="job-stats__note" id="job-received"></p>`;
 
   const speedEl = root.querySelector('#job-speed');
+  const readEl = root.querySelector('#job-read');
   const elapsedEl = root.querySelector('#job-elapsed');
   const leftEl = root.querySelector('#job-left');
   const receivedEl = root.querySelector('#job-received');
   const line = root.querySelector('.job-stats__line');
   const area = root.querySelector('.job-stats__area');
-
-  let pollId = 0;
-  let paused = false;
   let lastBytes = -1;
-  let startBytes = -1;
-  let lastAt = 0;
-  let speed = 0;
+  let receivedBytes = 0;
   let history = [];
-  let supported = true;
+  let telemetryTimeout = 0;
 
   const timer = createJobTimer((view) => {
     if (!view.active) { root.hidden = true; return; }
@@ -60,56 +49,35 @@ export function createJobStats(root, { readNetworkBytes, formatBytes }) {
     area.setAttribute('points', points.length ? `${HISTORY - history.length},24 ${points.join(' ')} ${HISTORY - 1},24` : '');
   }
 
-  async function poll() {
-    if (paused || !supported) return;
-    let bytes;
-    try { bytes = await readNetworkBytes(); } catch { bytes = -1; }
-    if (bytes < 0) { supported = false; speedEl.textContent = 'n/a'; receivedEl.textContent = ''; return; }
-    const now = performance.now();
-    if (startBytes < 0) startBytes = bytes;
-    if (lastBytes >= 0) {
-      const dt = (now - lastAt) / 1000;
-      if (dt > 0) {
-        const instant = Math.max(0, (bytes - lastBytes) / dt);
-        speed += (1 - Math.exp(-dt / SPEED_SMOOTHING_SECONDS)) * (instant - speed);
-        history.push(speed);
-        if (history.length > HISTORY) history.shift();
-      }
-    }
+  function showMetrics(metrics) {
+    if (!metrics) return;
+    window.clearTimeout(telemetryTimeout);
+    const bytes = Math.max(0, Number(metrics.downloadedBytes) || 0);
+    receivedBytes += lastBytes < 0 || bytes < lastBytes ? bytes : bytes - lastBytes;
     lastBytes = bytes;
-    lastAt = now;
-    speedEl.textContent = `${formatBytes(Math.round(speed))}/s`;
-    receivedEl.textContent = `${formatBytes(bytes - startBytes)} received since this job started (whole computer)`;
+    const downloadRate = Math.max(0, Number(metrics.downloadRate) || 0);
+    const readRate = Math.max(0, Number(metrics.validationRate) || 0);
+    speedEl.textContent = `${formatBytes(Math.round(downloadRate))}/s`;
+    readEl.textContent = `${formatBytes(Math.round(readRate))}/s`;
+    receivedEl.textContent = `${formatBytes(receivedBytes)} in completed chunks`;
+    history.push(downloadRate);
+    if (history.length > HISTORY) history.shift();
     drawGraph();
   }
 
   return {
     start() {
-      paused = false; supported = true;
-      lastBytes = startBytes = -1; speed = 0; history = [];
-      speedEl.textContent = '—'; receivedEl.textContent = '';
+      lastBytes = -1; receivedBytes = 0; history = [];
+      speedEl.textContent = '—'; readEl.textContent = '—';
+      receivedEl.textContent = 'Waiting for downloader telemetry';
+      window.clearTimeout(telemetryTimeout);
+      telemetryTimeout = window.setTimeout(() => { receivedEl.textContent = 'Job statistics unavailable with this downloader'; }, 5000);
       drawGraph();
       timer.start();
-      window.clearInterval(pollId);
-      pollId = window.setInterval(poll, 1000);
-      poll();
     },
-    stop() {
-      window.clearInterval(pollId);
-      pollId = 0;
-      timer.stop();
-    },
-    pause() {
-      paused = true;
-      speed = 0;
-      speedEl.textContent = '0 B/s';
-      timer.pause();
-    },
-    resume() {
-      paused = false;
-      lastBytes = -1; // do not count the time spent paused
-      timer.resume();
-    },
-    report: (percent) => timer.report(percent),
+    stop() { window.clearTimeout(telemetryTimeout); timer.stop(); },
+    pause() { window.clearTimeout(telemetryTimeout); speedEl.textContent = '0 B/s'; readEl.textContent = '0 B/s'; timer.pause(); },
+    resume() { lastBytes = -1; timer.resume(); },
+    report(percent, metrics) { timer.report(percent); showMetrics(metrics); },
   };
 }

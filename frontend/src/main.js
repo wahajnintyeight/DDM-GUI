@@ -4,7 +4,7 @@ import './style.css';
 import { setupUpdater } from './updater.js';
 import { createGameSelector } from './game-selector';
 import { createDowngrade } from './downgrade';
-import { CancelDownload, NetworkReceivedBytes, PauseDownload, ResumeDownload, SelectDownloader, SelectGameFolder, SelectKeys, SelectManifest, StartDownload } from '../wailsjs/go/main/App';
+import { CancelDownload, PauseDownload, ResumeDownload, SelectDownloader, SelectGameFolder, SelectKeys, SelectManifest, StartDownload } from '../wailsjs/go/main/App';
 import { createJobStats } from './job-stats.js';
 import { EventsOn, Quit, WindowIsMaximised, WindowMinimise, WindowToggleMaximise } from '../wailsjs/runtime/runtime';
 
@@ -201,7 +201,7 @@ const formatDuration = (value) => {
   const seconds = Math.floor(total % 60);
   return hours ? `${hours}h ${minutes}m ${seconds}s` : minutes ? `${minutes}m ${seconds}s` : `${total < 10 ? total.toFixed(1) : seconds}s`;
 };
-const jobTimer = createJobStats(document.getElementById('job-stats'), { readNetworkBytes: NetworkReceivedBytes, formatBytes });
+const jobTimer = createJobStats(document.getElementById('job-stats'), { formatBytes });
 function updateReport(update, visible = false) {
   el.reportDownloaded.textContent = formatBytes(update.downloadedBytes);
   el.reportUncompressed.textContent = formatBytes(update.uncompressedBytes);
@@ -351,7 +351,7 @@ try {
   EventsOn('download:update', (update) => {
     document.dispatchEvent(new CustomEvent('depotdrop:update', { detail: update }));
     updateProgress(update.progress); updateReport(update, update.state !== 'running'); el.status.textContent = update.message; appendLine(update.line);
-    if (update.state === 'running') jobTimer.report(update.progress);
+    if (update.state === 'running') jobTimer.report(update.progress, update.metrics);
     if (update.state === 'paused') {
       jobTimer.pause();
       state.paused = true;

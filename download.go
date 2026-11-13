@@ -44,13 +44,14 @@ type DownloadRequest struct {
 }
 
 type DownloadUpdate struct {
-	State             string  `json:"state"`
-	Progress          float64 `json:"progress"`
-	Message           string  `json:"message"`
-	Line              string  `json:"line,omitempty"`
-	DownloadedBytes   int64   `json:"downloadedBytes"`
-	UncompressedBytes int64   `json:"uncompressedBytes"`
-	ElapsedSeconds    float64 `json:"elapsedSeconds"`
+	State             string      `json:"state"`
+	Progress          float64     `json:"progress"`
+	Message           string      `json:"message"`
+	Line              string      `json:"line,omitempty"`
+	DownloadedBytes   int64       `json:"downloadedBytes"`
+	UncompressedBytes int64       `json:"uncompressedBytes"`
+	ElapsedSeconds    float64     `json:"elapsedSeconds"`
+	Metrics           *JobMetrics `json:"metrics,omitempty"`
 }
 
 func inspectManifest(path string) (ManifestInfo, error) {
@@ -180,9 +181,24 @@ func (a *App) ResumeDownload() error {
 }
 
 func (a *App) runDownload(ctx, attemptCtx context.Context, executable string, args []string, workingDirectory string, emit func(DownloadUpdate)) {
+	firstAttempt := true
 	a.runSupervised(ctx, attemptCtx, func(attemptCtx context.Context, emit func(DownloadUpdate)) DownloadUpdate {
-		return downloadAttempt(attemptCtx, executable, args, workingDirectory, emit)
+		attemptArgs := args
+		if !firstAttempt {
+			attemptArgs = resumeDownloadArgs(args)
+		}
+		firstAttempt = false
+		return downloadAttempt(attemptCtx, executable, attemptArgs, workingDirectory, emit)
 	}, nil, emit)
+}
+
+func resumeDownloadArgs(args []string) []string {
+	for _, arg := range args {
+		if strings.EqualFold(arg, "-validate") || strings.EqualFold(arg, "-verify-all") || strings.EqualFold(arg, "-verify_all") {
+			return args
+		}
+	}
+	return append(append([]string(nil), args...), "-validate")
 }
 
 // runSupervised owns pause, resume and cancel for any job made of repeatable attempts. finalize, when set,
@@ -250,6 +266,7 @@ func downloadAttempt(ctx context.Context, executable string, args []string, work
 
 	command := exec.CommandContext(ctx, executable, args...)
 	command.Dir = workingDirectory
+	command.Env = append(os.Environ(), "DEPOTDROP_TELEMETRY=1")
 	stdout, err := command.StdoutPipe()
 	if err != nil {
 		return DownloadUpdate{State: "error", Message: "Could not read downloader output: " + err.Error()}
@@ -266,6 +283,16 @@ func downloadAttempt(ctx context.Context, executable string, args []string, work
 		}
 		return DownloadUpdate{State: state, Message: message}
 	}
+	stopReaders := make(chan struct{})
+	defer close(stopReaders)
+	go func() {
+		select {
+		case <-ctx.Done():
+			_ = stdout.Close()
+			_ = stderr.Close()
+		case <-stopReaders:
+		}
+	}()
 
 	lines := make(chan string, 64)
 	var readers sync.WaitGroup
@@ -281,9 +308,19 @@ func downloadAttempt(ctx context.Context, executable string, args []string, work
 	downloadedBytes := int64(0)
 	uncompressedBytes := int64(0)
 	lastProgressEmit := time.Time{}
+	var metrics metricsSampler
 	for line := range lines {
+		if ctx.Err() != nil {
+			continue
+		}
 		line = strings.TrimSpace(ansiPattern.ReplaceAllString(line, ""))
 		if line == "" {
+			continue
+		}
+		if sample, matched := metrics.parse(line, time.Now()); matched {
+			if sample != nil {
+				emit(DownloadUpdate{State: "running", Progress: progress, Message: "Downloading files", Metrics: sample})
+			}
 			continue
 		}
 		if downloaded, uncompressed, ok := parseDownloadTotals(line); ok {
